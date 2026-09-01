@@ -65,3 +65,4 @@ export type { ModelMessage, StructuredGenerationRequest, StructuredGenerationRes
 export { StructuredQueryGenerator, QUERY_AST_SCHEMA } from './query-generator.js';
 export { AgenticQueryAgent, type AgentOptions, type AgentPolicy, type AgentResult } from './agent.js';
 export { QueryRepairer, QueryRepairError, type QueryRepairOptions } from './repair.js';
+export { SemanticCatalog, type DimensionDefinition, type MetricDefinition, type SemanticCatalogDefinition, type SelectMetricExpression } from './semantic.js';
