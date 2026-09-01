@@ -11,7 +11,9 @@ module AgenticQuery
       @timeout_ms = Integer(timeout_ms)
       @allowed_entities = nil
       @denied_fields = Hash.new { |hash, key| hash[key] = [] }
-      @row_constraints = row_constraints.transform_keys(&:to_s)
+      @row_constraints = row_constraints.transform_keys(&:to_s).transform_values do |constraint|
+        constraint.is_a?(RowConstraint) ? constraint : RowConstraint.new(constraint)
+      end
     end
 
     def allow_entities(*entities)
@@ -22,13 +24,10 @@ module AgenticQuery
       @denied_fields[entity.to_s].concat(fields.flatten.map(&:to_s)).uniq!
     end
 
-    # Register deterministic row-level predicates. The block receives the
-    # ActiveRecord relation and must return a relation. This keeps tenant
-    # isolation in trusted application code instead of the model prompt.
     def constrain_rows(entity, &constraint)
       raise ArgumentError, "row constraint requires a block" unless constraint
 
-      @row_constraints[entity.to_s] = constraint
+      @row_constraints[entity.to_s] = RowConstraint.new(constraint)
     end
 
     def row_constraint(entity)
