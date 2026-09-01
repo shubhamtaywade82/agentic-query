@@ -9,6 +9,7 @@ ActiveRecord::Schema.define do
   create_table :orders do |table|
     table.string :status, null: false
     table.decimal :amount, null: false
+    table.integer :account_id, null: false, default: 0
   end
 end
 
@@ -19,9 +20,9 @@ RSpec.describe AgenticQuery::ActiveRecordAdapter do
 
   before do
     Order.delete_all
-    Order.create!(status: "completed", amount: 100)
-    Order.create!(status: "completed", amount: 250)
-    Order.create!(status: "cancelled", amount: 50)
+    Order.create!(status: "completed", amount: 100, account_id: 1)
+    Order.create!(status: "completed", amount: 250, account_id: 2)
+    Order.create!(status: "cancelled", amount: 50, account_id: 1)
   end
 
   it "compiles a filtered relation" do
@@ -54,6 +55,35 @@ RSpec.describe AgenticQuery::ActiveRecordAdapter do
 
     expect(result.map { |row| [row.status, row.total.to_f] })
       .to contain_exactly(["completed", 350.0], ["cancelled", 50.0])
+  end
+
+  it "applies a trusted tenant scope before user filters" do
+    policy = AgenticQuery::Policy.new
+    policy.constrain_tenant("orders") { |relation| relation.where(account_id: 1) }
+
+    query = {
+      "source" => { "name" => "orders" },
+      "select" => [{ "field" => { "field" => "amount" } }],
+      "filters" => [{
+        "field" => { "field" => "status" },
+        "operator" => "eq",
+        "value" => "completed"
+      }]
+    }
+
+    result = adapter.compile(query, policy: policy).to_a
+
+    expect(result.map(&:amount).map(&:to_f)).to contain_exactly(100.0)
+  end
+
+  it "caps query rows by the execution policy" do
+    policy = AgenticQuery::Policy.new(execution_policy: AgenticQuery::ExecutionPolicy.new(max_rows: 1))
+    query = {
+      "source" => { "name" => "orders" },
+      "select" => [{ "field" => { "field" => "amount" } }]
+    }
+
+    expect(adapter.compile(query, policy: policy).to_a.size).to eq(1)
   end
 
   it "rejects an unregistered entity" do
