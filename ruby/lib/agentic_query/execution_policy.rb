@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module AgenticQuery
-  # Execution-time safeguards that remain outside the LLM/query AST.
+  # Deterministic execution safeguards owned by the application, never by the LLM.
   class ExecutionPolicy
     attr_reader :max_rows, :timeout_ms
 
