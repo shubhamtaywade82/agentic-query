@@ -30,7 +30,7 @@ describe('AgenticQueryAgent', () => {
     };
 
     const adapter: QueryAdapter<string, string[]> = {
-      compile: () => 'compiled-query',
+      compile: (_query, _policy) => 'compiled-query',
       execute: async (compiled) => [compiled]
     };
 
@@ -42,13 +42,15 @@ describe('AgenticQueryAgent', () => {
       policy: { allowedEntities: ['orders'], maxRows: 100 }
     });
 
-    await expect(agent.ask('List recent orders')).resolves.toEqual({
+    await expect(agent.ask('List recent orders')).resolves.toMatchObject({
       query: {
         source: { name: 'orders' },
         select: [{ field: { entity: 'orders', field: 'id' } }],
         limit: 10
       },
-      result: ['compiled-query']
+      result: ['compiled-query'],
+      repairAttempts: 0,
+      schemaContext: expect.any(String)
     });
   });
 });
