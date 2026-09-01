@@ -1,4 +1,4 @@
-import { validateQuery, type ModelProvider, type Query, type QueryGenerationRequest } from './index.js';
+import { QueryValidationError, validateQuery, type ModelProvider, type Query, type QueryGenerationRequest } from './index.js';
 import type { QueryGenerator } from './model.js';
 
 export const QUERY_AST_SCHEMA = {
@@ -49,6 +49,15 @@ export interface StructuredQueryGeneratorOptions {
   systemPrompt?: string;
 }
 
+export class QueryGenerationError extends QueryValidationError {
+  readonly code = 'QUERY_GENERATION_ERROR';
+
+  constructor(message: string, readonly candidate: unknown, readonly cause?: unknown) {
+    super(message);
+    this.name = 'QueryGenerationError';
+  }
+}
+
 export class StructuredQueryGenerator implements QueryGenerator {
   private readonly provider: ModelProvider;
   private readonly systemPrompt: string;
@@ -64,24 +73,30 @@ export class StructuredQueryGenerator implements QueryGenerator {
   }
 
   async generate(request: QueryGenerationRequest): Promise<Query> {
-    const result = await this.provider.generateStructured<Query>({
-      model: request.model,
-      schema: QUERY_AST_SCHEMA as unknown as Record<string, unknown>,
-      messages: [
-        { role: 'system', content: this.systemPrompt },
-        {
-          role: 'user',
-          content: [
-            `Question: ${request.question}`,
-            '',
-            'Schema context:',
-            request.schemaContext
-          ].join('\n')
-        }
-      ]
-    });
-
-    validateQuery(result.output);
-    return result.output;
+    let output: unknown;
+    try {
+      const result = await this.provider.generateStructured<Query>({
+        model: request.model,
+        schema: QUERY_AST_SCHEMA as unknown as Record<string, unknown>,
+        messages: [
+          { role: 'system', content: this.systemPrompt },
+          {
+            role: 'user',
+            content: [
+              `Question: ${request.question}`,
+              '',
+              'Schema context:',
+              request.schemaContext
+            ].join('\n')
+          }
+        ]
+      });
+      output = result.output;
+      validateQuery(result.output);
+      return result.output;
+    } catch (error) {
+      if (error instanceof QueryGenerationError) throw error;
+      throw new QueryGenerationError('Model produced an invalid query AST', output, error);
+    }
   }
 }
