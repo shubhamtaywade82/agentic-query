@@ -34,6 +34,7 @@ module AgenticQuery
       end
 
       relation = model.all
+      relation = apply_tenant_scope(relation, policy, source_name)
       relation = apply_row_constraint(relation, policy, source_name)
       relation = apply_joins(relation, query, policy)
       relation = apply_filters(relation, query)
@@ -48,6 +49,13 @@ module AgenticQuery
     end
 
     private
+
+    def apply_tenant_scope(relation, policy, entity)
+      scope = policy.tenant_scope(entity)
+      return relation unless scope
+
+      scope.apply(relation)
+    end
 
     def apply_row_constraint(relation, policy, entity)
       constraint = policy.row_constraint(entity)
