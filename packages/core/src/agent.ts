@@ -86,6 +86,7 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
       repairAttempts = this.maxRepairAttempts;
     }
 
+    validateQuery(query, policy);
     const compiled = this.options.queryAdapter.compile(query);
     const result = await this.options.queryAdapter.execute(compiled);
 
