@@ -1,1 +1,36 @@
-{"name":"@agentic-query/core","version":"0.1.0","description":"Core query contracts and deterministic policy validation for Agentic Query","type":"module","main":"./dist/index.js","types":"./dist/index.d.ts","exports":{".":{"types":"./dist/index.d.ts","import":"./dist/index.js"}},"files":["dist","README.md","LICENSE"],"scripts":{"build":"tsc -p tsconfig.json","test":"vitest run","lint":"tsc -p tsconfig.json --noEmit","typecheck":"tsc -p tsconfig.json --noEmit"},"devDependencies":{"typescript":"^5.9.2","vitest":"^3.2.4"}}
+{
+  "name": "@agentic-query/core",
+  "version": "0.2.0",
+  "description": "ORM-native AI query contracts, semantic resolution, policy validation, retrieval, repair, and agent orchestration",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shubhamtaywade82/agentic-query.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/shubhamtaywade82/agentic-query#readme",
+  "bugs": {
+    "url": "https://github.com/shubhamtaywade82/agentic-query/issues"
+  },
+  "keywords": ["ai", "llm", "sql", "orm", "agent", "database", "rails", "node", "typescript"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}
