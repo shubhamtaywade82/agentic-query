@@ -22,8 +22,8 @@ jobs:
           node-version: 22.14.0
           cache: pnpm
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm typecheck
       - run: pnpm test
 
   ruby:
@@ -37,6 +37,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
+          working-directory: ruby
       - run: bundle exec rspec
 
   postgres:
@@ -73,6 +74,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
+          working-directory: ruby
       - name: Run PostgreSQL integration tests
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test

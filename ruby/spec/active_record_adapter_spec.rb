@@ -1,17 +1,6 @@
 # frozen_string_literal: true
 
-require "active_record"
-require "agentic_query"
-
-ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
-
-ActiveRecord::Schema.define do
-  create_table :orders do |table|
-    table.string :status, null: false
-    table.decimal :amount, null: false
-    table.integer :account_id, null: false, default: 0
-  end
-end
+require_relative "spec_helper"
 
 class Order < ActiveRecord::Base; end
 

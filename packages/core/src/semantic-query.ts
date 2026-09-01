@@ -39,14 +39,7 @@ export function resolveSemanticQuery(
   catalog: SemanticCatalog
 ): Query {
   return {
-    source: query.source,
-    select: query.select.map((expression) => resolveSelectExpression(expression, catalog)),
-    joins: query.joins,
-    filters: query.filters,
-    groupBy: query.groupBy,
-    having: query.having,
-    orderBy: query.orderBy,
-    limit: query.limit,
-    offset: query.offset
+    ...query,
+    select: query.select.map((expression) => resolveSelectExpression(expression, catalog))
   };
 }

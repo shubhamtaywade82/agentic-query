@@ -39,13 +39,13 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
   constructor(private readonly options: AgentOptions<CompiledQuery, Result>) {
     this.generator = new StructuredQueryGenerator({
       provider: options.modelProvider,
-      systemPrompt: options.systemPrompt
+      ...(options.systemPrompt !== undefined ? { systemPrompt: options.systemPrompt } : {})
     });
     if (options.semanticCatalog) {
       this.semanticGenerator = new SemanticQueryGenerator({
         provider: options.modelProvider,
         catalog: options.semanticCatalog,
-        systemPrompt: options.systemPrompt
+        ...(options.systemPrompt !== undefined ? { systemPrompt: options.systemPrompt } : {})
       });
     }
     this.schemaRetriever = options.schemaRetriever ?? new SimpleSchemaRetriever({

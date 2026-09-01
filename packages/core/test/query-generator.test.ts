@@ -45,6 +45,6 @@ describe('StructuredQueryGenerator', () => {
       question: 'List orders',
       schemaContext: 'orders(id)',
       model: 'qwen3'
-    })).rejects.toThrow('Query must select at least one expression');
+    })).rejects.toThrow('Query must have at least one select expression');
   });
 });

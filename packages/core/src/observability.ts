@@ -25,7 +25,9 @@ export class CollectingQueryObserver implements QueryObserver {
   readonly events: QueryEvent[] = [];
 
   onEvent(event: QueryEvent): void {
-    this.events.push({ ...event, attributes: event.attributes ? { ...event.attributes } : undefined });
+    this.events.push(
+      event.attributes ? { ...event, attributes: { ...event.attributes } } : { ...event }
+    );
   }
 }
 
