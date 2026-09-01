@@ -60,7 +60,6 @@ function validateFilter(filter: Filter, label: string): void {
   assertFieldRef(filter?.field, `${label}.field`);
   const operators: readonly ComparisonOperator[] = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'not_in', 'like', 'is_null', 'is_not_null', 'between'];
   if (!operators.includes(filter.operator)) throw new QueryValidationError(`${label}.operator is unsupported`);
-
   if (['in', 'not_in', 'between'].includes(filter.operator) && !Array.isArray(filter.values)) {
     throw new QueryValidationError(`${label}.values must be an array`);
   }
@@ -77,15 +76,14 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
     throw new QueryValidationError('Query must have at least one select expression');
   }
 
-  if (policy.maxRows !== undefined && query.limit !== undefined) {
-    if (!Number.isSafeInteger(policy.maxRows) || policy.maxRows <= 0) throw new QueryValidationError('Policy maxRows must be a positive integer');
-    if (!Number.isSafeInteger(query.limit) || query.limit <= 0 || query.limit > policy.maxRows) {
-      throw new QueryValidationError('Query limit exceeds policy maximum or is invalid');
-    }
+  if (policy.maxRows !== undefined && (!Number.isSafeInteger(policy.maxRows) || policy.maxRows <= 0)) {
+    throw new QueryValidationError('Policy maxRows must be a positive integer');
   }
-
   if (query.limit !== undefined && (!Number.isSafeInteger(query.limit) || query.limit <= 0 || query.limit > 10000)) {
     throw new QueryValidationError('Query limit must be an integer between 1 and 10000');
+  }
+  if (policy.maxRows !== undefined && query.limit !== undefined && query.limit > policy.maxRows) {
+    throw new QueryValidationError('Query limit exceeds policy maximum');
   }
   if (query.offset !== undefined && (!Number.isSafeInteger(query.offset) || query.offset < 0)) {
     throw new QueryValidationError('Query offset must be a non-negative integer');
@@ -101,8 +99,15 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
 
   for (const [index, expression] of query.select.entries()) {
     if (!expression || typeof expression !== 'object') throw new QueryValidationError(`select[${index}] is invalid`);
-    assertFieldRef(expression.field, `select[${index}].field`);
-    if (expression.aggregate !== undefined && !(['count', 'sum', 'avg', 'min', 'max'] as readonly string[]).includes(expression.aggregate)) {
+    const candidate = expression as SelectExpression | SemanticSelectExpression;
+    if ('semantic' in candidate) {
+      if (!candidate.semantic || !['metric', 'dimension'].includes(candidate.semantic.kind) || typeof candidate.semantic.name !== 'string' || candidate.semantic.name.length === 0) {
+        throw new QueryValidationError(`select[${index}].semantic is invalid`);
+      }
+      continue;
+    }
+    assertFieldRef(candidate.field, `select[${index}].field`);
+    if (candidate.aggregate !== undefined && !(['count', 'sum', 'avg', 'min', 'max'] as readonly string[]).includes(candidate.aggregate)) {
       throw new QueryValidationError(`select[${index}].aggregate is unsupported`);
     }
   }
@@ -122,7 +127,7 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
   }
 
   for (const field of [
-    ...query.select.map((expression) => expression.field),
+    ...query.select.filter((expression): expression is SelectExpression => 'field' in expression).map((expression) => expression.field),
     ...(query.groupBy ?? []),
     ...(query.orderBy ?? []).map((order) => order.field),
     ...(query.filters ?? []).map((filter) => filter.field),
@@ -144,3 +149,6 @@ export { QueryRepairer, QueryRepairError, type QueryRepairOptions } from './repa
 export { SemanticCatalog, type DimensionDefinition, type MetricDefinition, type SemanticCatalogDefinition, type SelectMetricExpression } from './semantic.js';
 export { resolveSemanticSelect, resolveSemanticQuery, type SemanticSelectExpression as SemanticResolverSelectExpression } from './semantic-query.js';
 export { SchemaRetriever, SimpleSchemaRetriever, formatSchemaContext, type SimpleSchemaRetrieverOptions } from './schema-retriever.js';
+export { validateQueryPlan, DeterministicQueryPlanner, type QueryPlan, type QueryPlanStep, type PlanContext, type QueryPlanner } from './planner.js';
+export { executeQueryPlan, planQueryMap, type PlanExecutionOptions, type PlanExecutionResult, type PlanStepResult } from './plan-executor.js';
+export { CollectingQueryObserver, CompositeQueryObserver, NoopQueryObserver, elapsedMs, type QueryEvent, type QueryEventName, type QueryObserver } from './observability.js';
