@@ -1,0 +1,51 @@
+{
+  "version": "0.2",
+  "cases": [
+    {
+      "name": "basic selection with limit",
+      "query": {
+        "source": { "name": "orders" },
+        "select": [
+          { "field": { "entity": "orders", "field": "id" } },
+          { "field": { "entity": "orders", "field": "status" } }
+        ],
+        "limit": 10
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": ["id", "status"],
+        "limit": 10
+      }
+    },
+    {
+      "name": "filtered ordering",
+      "query": {
+        "source": { "name": "orders" },
+        "select": [
+          { "field": { "entity": "orders", "field": "id" } }
+        ],
+        "filters": [
+          {
+            "field": { "entity": "orders", "field": "status" },
+            "operator": "eq",
+            "value": "completed"
+          }
+        ],
+        "orderBy": [
+          {
+            "field": { "entity": "orders", "field": "id" },
+            "direction": "desc"
+          }
+        ],
+        "limit": 5
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": ["id"],
+        "filterFields": ["status"],
+        "orderBy": [{ "field": "id", "direction": "desc" }],
+        "limit": 5
+      }
+    }
+  ]
+}
