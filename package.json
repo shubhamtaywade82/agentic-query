@@ -10,6 +10,7 @@
     "test": "pnpm -r test",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build"
+    "check:versions": "node scripts/check-release.mjs",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm check:versions"
   }
 }
