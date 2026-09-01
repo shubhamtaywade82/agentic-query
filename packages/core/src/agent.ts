@@ -1,6 +1,6 @@
 import { QueryRepairer } from './repair.js';
 import { validateQuery, type Query, type SchemaProvider, type QueryAdapter, type ModelProvider, type QueryPolicy } from './index.js';
-import { StructuredQueryGenerator } from './query-generator.js';
+import { StructuredQueryGenerator, QueryGenerationError } from './query-generator.js';
 import { formatSchemaContext, SimpleSchemaRetriever, type SchemaRetriever } from './schema-retriever.js';
 
 export interface AgentPolicy extends QueryPolicy {}
@@ -27,6 +27,7 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
   private readonly generator: StructuredQueryGenerator;
   private readonly schemaRetriever: SchemaRetriever;
   private readonly repairer: QueryRepairer;
+  private readonly maxRepairAttempts: number;
 
   constructor(private readonly options: AgentOptions<CompiledQuery, Result>) {
     this.generator = new StructuredQueryGenerator({
@@ -36,10 +37,11 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
     this.schemaRetriever = options.schemaRetriever ?? new SimpleSchemaRetriever({
       provider: options.schemaProvider
     });
+    this.maxRepairAttempts = Math.max(0, options.maxRepairAttempts ?? 2);
     this.repairer = new QueryRepairer({
       provider: options.modelProvider,
       model: options.model,
-      maxAttempts: options.maxRepairAttempts ?? 2
+      maxAttempts: this.maxRepairAttempts
     });
   }
 
@@ -59,25 +61,14 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
       });
       validateQuery(query, policy);
     } catch (error) {
-      repairAttempts = this.options.maxRepairAttempts ?? 2;
-      query = await this.repairer.repair(
-        question,
-        schemaContext,
-        this.tryCandidate(error),
-        policy
-      );
+      const candidate = error instanceof QueryGenerationError ? error.candidate : {};
+      query = await this.repairer.repair(question, schemaContext, candidate, policy);
+      repairAttempts = this.maxRepairAttempts;
     }
 
     const compiled = this.options.queryAdapter.compile(query);
     const result = await this.options.queryAdapter.execute(compiled);
 
     return { query, result, schemaContext, repairAttempts };
-  }
-
-  private tryCandidate(error: unknown): unknown {
-    if (error && typeof error === 'object' && 'candidate' in error) {
-      return (error as { candidate?: unknown }).candidate;
-    }
-    return {};
   }
 }
