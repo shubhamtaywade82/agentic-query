@@ -1,19 +1,12 @@
 import { validateQuery, type Filter, type Query, type QueryPolicy, type SelectExpression } from '@agentic-query/core';
 
-export interface PrismaFieldMap {
-  [entity: string]: Record<string, string>;
-}
-
-export interface PrismaRelationMap {
-  [entity: string]: Record<string, string>;
-}
-
-export interface PrismaModelMap {
-  [entity: string]: string;
-}
+export interface PrismaFieldMap { [entity: string]: Record<string, string>; }
+export interface PrismaRelationMap { [entity: string]: Record<string, string>; }
+export interface PrismaModelMap { [entity: string]: string; }
 
 export interface PrismaCompiledQuery {
   model: string;
+  operation: 'findMany' | 'groupBy' | 'aggregate';
   args: Record<string, unknown>;
 }
 
@@ -40,52 +33,73 @@ export class PrismaAdapter {
     const model = this.models[entity];
     if (!model) throw new Error(`Prisma model is not registered: ${entity}`);
 
+    if (query.groupBy?.length || query.having?.length) return this.compileGroupBy(entity, model, query);
+    if (query.select.some((expression) => expression.aggregate)) return this.compileAggregate(entity, model, query);
+    return { model, operation: 'findMany', args: this.compileFindManyArgs(entity, query) };
+  }
+
+  private compileFindManyArgs(entity: string, query: Query): Record<string, unknown> {
     const args: Record<string, unknown> = {};
     const select = this.compileSelect(entity, query.select);
     if (Object.keys(select).length > 0) args.select = select;
-
     const where = this.compileFilters(entity, query.filters ?? []);
     if (Object.keys(where).length > 0) args.where = where;
-
     if (query.orderBy?.length) {
-      args.orderBy = query.orderBy.map((order) => ({
-        [this.mapField(entity, order.field.field)]: order.direction
-      }));
+      args.orderBy = query.orderBy.map((order) => ({ [this.mapField(entity, order.field.field)]: order.direction }));
     }
-
     if (query.limit !== undefined) args.take = query.limit;
     if (query.offset !== undefined) args.skip = query.offset;
+    if (query.joins?.length) throw new Error('Join compilation requires explicit Prisma relation mapping');
+    return args;
+  }
 
-    if (query.joins?.length) {
-      throw new Error('Join compilation requires relation-aware selection and is not implemented yet');
+  private compileGroupBy(entity: string, model: string, query: Query): PrismaCompiledQuery {
+    if (!query.groupBy?.length) throw new Error('groupBy requires at least one field');
+    if (query.joins?.length) throw new Error('groupBy with joins requires explicit Prisma relation mapping');
+    if (query.select.some((expression) => !expression.aggregate && !query.groupBy?.some((field) => field.field === expression.field.field))) {
+      throw new Error('Prisma groupBy requires selected dimensions to appear in groupBy');
     }
+    const by = query.groupBy.map((field) => this.mapField(entity, field.field));
+    const args: Record<string, unknown> = { by };
+    const where = this.compileFilters(entity, query.filters ?? []);
+    if (Object.keys(where).length > 0) args.where = where;
+    if (query.orderBy?.length) args.orderBy = query.orderBy.map((order) => ({ [this.mapField(entity, order.field.field)]: order.direction }));
+    if (query.limit !== undefined) args.take = query.limit;
+    if (query.offset !== undefined) args.skip = query.offset;
+    if (query.having?.length) args.having = this.compileFilters(entity, query.having);
+    return { model, operation: 'groupBy', args };
+  }
 
-    if (query.groupBy?.length || query.having?.length) {
-      throw new Error('GroupBy/HAVING compilation is not implemented yet');
+  private compileAggregate(entity: string, model: string, query: Query): PrismaCompiledQuery {
+    if (query.groupBy?.length || query.having?.length) throw new Error('Use groupBy for grouped aggregate queries');
+    if (query.joins?.length) throw new Error('Aggregate queries with joins require explicit Prisma relation mapping');
+
+    const aggregate: Record<string, unknown> = {};
+    for (const expression of query.select) {
+      if (!expression.aggregate) continue;
+      const field = this.mapField(entity, expression.field.field);
+      const key = expression.aggregate === 'count' && field === '*' ? '_count' : `_${expression.aggregate}`;
+      const target = (aggregate[key] ??= {}) as Record<string, unknown>;
+      target[field] = true;
     }
-
-    return { model, args };
+    const where = this.compileFilters(entity, query.filters ?? []);
+    const args: Record<string, unknown> = { [Object.keys(aggregate).join('')]: aggregate };
+    if (Object.keys(where).length > 0) args.where = where;
+    return { model, operation: 'aggregate', args };
   }
 
   private compileSelect(entity: string, expressions: SelectExpression[]): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const expression of expressions) {
-      if (expression.aggregate) {
-        throw new Error('Aggregate selection requires the Prisma aggregate API and is not implemented yet');
-      }
-
-      const field = this.mapField(entity, expression.field.field);
-      result[field] = true;
+      if (expression.aggregate) throw new Error('Aggregate expressions must use the aggregate operation');
+      result[this.mapField(entity, expression.field.field)] = true;
     }
     return result;
   }
 
   private compileFilters(entity: string, filters: Filter[]): Record<string, unknown> {
     const where: Record<string, unknown> = {};
-    for (const filter of filters) {
-      const field = this.mapField(entity, filter.field.field);
-      where[field] = this.compilePredicate(filter);
-    }
+    for (const filter of filters) where[this.mapField(entity, filter.field.field)] = this.compilePredicate(filter);
     return where;
   }
 
@@ -111,9 +125,7 @@ export class PrismaAdapter {
     }
   }
 
-  private mapField(entity: string, field: string): string {
-    return this.fields[entity]?.[field] ?? field;
-  }
+  private mapField(entity: string, field: string): string { return this.fields[entity]?.[field] ?? field; }
 
   relation(entity: string, relation: string): string {
     const mapped = this.relations[entity]?.[relation];
