@@ -31,10 +31,10 @@ RSpec.describe "PostgreSQL integration" do
   end
 
   it "executes a policy-valid filtered relation" do
-    adapter = AgenticQuery::ActiveRecordAdapter.new(
-      models: { "orders" => Order },
-      fields: { "orders" => %w[id status amount] }
-    )
+    policy = AgenticQuery::Policy.new
+    policy.allow_entities("orders")
+
+    adapter = AgenticQuery::ActiveRecordAdapter.new(models: { "orders" => Order })
 
     query = {
       "source" => { "name" => "orders" },
@@ -45,10 +45,11 @@ RSpec.describe "PostgreSQL integration" do
           "operator" => "eq",
           "value" => "completed"
         }
-      ]
+      ],
+      "limit" => 10
     }
 
-    relation = adapter.compile(query)
-    expect(adapter.execute(relation).size).to eq(2)
+    relation = adapter.compile(query, policy: policy)
+    expect(relation.to_a.size).to eq(2)
   end
 end
