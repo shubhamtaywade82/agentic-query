@@ -1,10 +1,13 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
+
 permissions:
   contents: read
+
 jobs:
   typescript:
     runs-on: ubuntu-latest
@@ -17,6 +20,7 @@ jobs:
       - run: pnpm install --frozen-lockfile=false
       - run: pnpm typecheck
       - run: pnpm build
+
   ruby:
     runs-on: ubuntu-latest
     steps:
@@ -28,3 +32,44 @@ jobs:
           bundler-cache: true
       - run: bundle exec rspec
         working-directory: ruby
+
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: agentic_query_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agentic_query_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify PostgreSQL
+        env:
+          PGHOST: localhost
+          PGPORT: 5432
+          PGUSER: postgres
+          PGPASSWORD: postgres
+          PGDATABASE: agentic_query_test
+        run: psql -c 'select version();'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          working-directory: ruby
+          bundler-cache: true
+      - name: Run PostgreSQL integration tests
+        if: ${{ hashFiles('ruby/spec/integration/**/*_spec.rb') != '' }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
+        run: bundle exec rspec spec/integration
+        working-directory: ruby
+      - name: Integration suite placeholder
+        if: ${{ hashFiles('ruby/spec/integration/**/*_spec.rb') == '' }}
+        run: echo 'PostgreSQL service is healthy; integration specs will run when present.'
