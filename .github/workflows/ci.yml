@@ -14,24 +14,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 10.15.0 }
+        with:
+          version: 10.15.0
+          run_install: false
       - uses: actions/setup-node@v5
-        with: { node-version: 22.14.0, cache: pnpm }
-      - run: pnpm install --frozen-lockfile=false
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
+      - run: pnpm test
 
   ruby:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ruby
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-          working-directory: ruby
           bundler-cache: true
       - run: bundle exec rspec
-        working-directory: ruby
 
   postgres:
     runs-on: ubuntu-latest
@@ -46,9 +52,12 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres -d agentic_query_test"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: ruby
     steps:
       - uses: actions/checkout@v4
       - name: Verify PostgreSQL
@@ -58,18 +67,17 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
           PGDATABASE: agentic_query_test
+        working-directory: .
         run: psql -c 'select version();'
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-          working-directory: ruby
           bundler-cache: true
       - name: Run PostgreSQL integration tests
-        if: ${{ hashFiles('ruby/spec/integration/**/*_spec.rb') != '' }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
-        run: bundle exec rspec spec/integration
-        working-directory: ruby
-      - name: Integration suite placeholder
-        if: ${{ hashFiles('ruby/spec/integration/**/*_spec.rb') == '' }}
-        run: echo 'PostgreSQL service is healthy; integration specs will run when present.'
+        run: bundle exec rspec spec/integration --format progress
+      - name: Assert integration suite executed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
+        run: bundle exec rspec spec/integration --format progress --fail-fast
