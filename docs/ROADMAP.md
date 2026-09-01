@@ -1,6 +1,8 @@
 # Roadmap
 
-Agentic Query is being developed in staged layers. Deterministic query execution and security primitives are built before broader autonomous behavior.
+Agentic Query is developed in dependency order: security and deterministic execution first, then semantic intelligence, planning, evaluation, and distribution.
+
+The exhaustive delivery checklist is maintained in [`docs/IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md).
 
 ## Completed foundations
 
@@ -13,78 +15,110 @@ Agentic Query is being developed in staged layers. Deterministic query execution
 - Entity and field policy validation
 - CI/repository governance
 
-### v0.2 — ORM/model boundaries
+### v0.2 — Runtime foundations
 
-- ActiveRecord adapter foundation
-- Prisma adapter boundary
-- Drizzle adapter boundary
+- ActiveRecord adapter foundation and tenant scope enforcement
+- Prisma native read/aggregate/groupBy compilation
+- Drizzle policy-aware host compiler boundary
 - Model provider abstraction
 - Ollama provider package
-- Schema provider/retrieval abstraction
-- Semantic catalog foundation
+- Schema provider and retrieval abstraction
+- Semantic catalog and semantic-query resolution
 - Bounded query repair
 - Agent orchestration foundation
-- Semantic Query v0.2 foundation
+- Query planner and bounded plan executor
+- Provider-neutral observability hooks
+- PostgreSQL integration foundation
+- Release/version consistency checks
 
-## Next
+## v0.3 — Production hardening
 
-### v0.3 — Production adapter/runtime hardening
+- [ ] Complete ActiveRecord association-aware join semantics
+- [ ] Complete Prisma relation-aware execution semantics
+- [ ] Implement optional/native Drizzle compiler where feasible
+- [ ] Cross-ORM conformance result-equivalence suite
+- [ ] PostgreSQL integration matrix
+- [ ] Database-level timeout/cancellation verification
+- [ ] Query complexity and resource limits
+- [ ] Complete tenant/row-security adversarial suite
+- [ ] Result normalization contract
+- [ ] CI green across all required jobs
 
-- Complete cross-ORM conformance suite
-- PostgreSQL integration tests
-- Association-aware ActiveRecord execution coverage
-- Complete Prisma/Drizzle AST coverage
-- Database-level timeout/cancellation controls
-- Strong tenant/row-level security semantics
-- Deterministic query planning and explainability
+## v0.4 — Agent runtime
 
-### v0.4 — Agent runtime
+- [ ] LLM-generated multi-step plans
+- [ ] Intermediate result references
+- [ ] Plan explanation
+- [ ] Structured repair diagnostics
+- [ ] Conversation/task context
+- [ ] Safe answer synthesis
 
-- Semantic-aware query generation
-- Multi-step planning
-- Query repair with structured diagnostics
-- Result normalization
-- Natural-language result synthesis
-- Conversation/task context
+## v0.5 — Advanced semantic layer
 
-### v0.5 — Advanced semantic layer
+- [ ] Derived metrics
+- [ ] Metric formulas
+- [ ] Time grains
+- [ ] Reusable dimensions
+- [ ] Semantic lineage
+- [ ] Domain-specific catalogs
+- [ ] Catalog versioning and invalidation
 
-- Derived metrics
-- Metric formulas
-- Time grains
-- Reusable dimensions
-- Domain-specific catalogs
-- Semantic lineage
+## v0.6 — Evaluation and observability
 
-### v0.6 — Evaluation and observability
+- [ ] Golden query dataset
+- [ ] Semantic correctness evaluation
+- [ ] Execution correctness evaluation
+- [ ] Security adversarial evaluation
+- [ ] Provider/model benchmarks
+- [ ] OpenTelemetry bridge
+- [ ] Token/cost/latency metrics
+- [ ] Regression dashboards
 
-- Golden query dataset
-- Semantic correctness evaluation
-- Security adversarial evaluation
-- Provider/model benchmarks
-- Query-plan telemetry
-- Cost/latency metrics
+## v0.7 — Provider ecosystem
 
-### v0.7 — Provider ecosystem
+- [ ] Production Ollama capability coverage
+- [ ] Additional provider adapters
+- [ ] Streaming structured generation
+- [ ] Provider capability negotiation
+- [ ] Provider fallback strategy
 
-- Production Ollama integration
-- Additional model-provider adapters
-- Streaming support
-- Provider capability negotiation
+## v0.8 — Performance and operations
 
-### v1.0 — Stable developer platform
+- [ ] Schema retrieval caching
+- [ ] Semantic catalog caching
+- [ ] Prompt/context budgets
+- [ ] Concurrency controls
+- [ ] Backpressure
+- [ ] Result serialization limits
+- [ ] Operational audit logging
 
-- Stable Query AST
-- Stable policy API
-- Stable provider/adapter contracts
-- Production documentation
-- Release provenance
-- Compatibility policy
-- npm and RubyGems release automation
+## v0.9 — Release candidate
+
+- [ ] Full documentation synchronization
+- [ ] Migration guide
+- [ ] Compatibility test matrix
+- [ ] Security review
+- [ ] Dependency/license review
+- [ ] Reproducible release verification
+- [ ] npm/RubyGems publication rehearsal
+
+## v1.0 — Stable developer platform
+
+- [ ] Stable Query AST
+- [ ] Stable policy API
+- [ ] Stable semantic API
+- [ ] Stable provider/adapter contracts
+- [ ] Production documentation
+- [ ] Release provenance
+- [ ] Compatibility policy
+- [ ] npm release automation verified
+- [ ] RubyGems release automation verified
+- [ ] CI required checks enforced
 
 ## Non-goals
 
 - Direct unrestricted LLM-to-database SQL execution
 - LLM-generated application code execution
 - Authorization implemented only through prompts
-- Hiding unsupported database semantics behind silent fallbacks
+- Silent fallback to unsupported database semantics
+- Unbounded autonomous database access
