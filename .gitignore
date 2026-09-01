@@ -1,0 +1,22 @@
+# Node
+node_modules/
+dist/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Ruby
+.bundle/
+vendor/bundle/
+.ruby-version.local
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.*
+!.env.example
