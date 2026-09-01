@@ -1,8 +1,8 @@
-import type { Query, QueryAdapter, SchemaProvider } from '@agentic-query/core';
+import type { Query, QueryAdapter, QueryPolicy, SchemaProvider } from '@agentic-query/core';
 
 export interface DrizzleQueryConfig<CompiledQuery = unknown> {
   schemaProvider: SchemaProvider;
-  compile: (query: Query) => CompiledQuery;
+  compile: (query: Query, policy?: QueryPolicy) => CompiledQuery;
   execute: (compiled: CompiledQuery) => Promise<unknown> | unknown;
 }
 
@@ -21,8 +21,8 @@ export class DrizzleAdapter<CompiledQuery = unknown, Result = unknown>
     this.schemaProvider = config.schemaProvider;
   }
 
-  compile(query: Query): CompiledQuery {
-    return this.config.compile(query);
+  compile(query: Query, policy?: QueryPolicy): CompiledQuery {
+    return this.config.compile(query, policy);
   }
 
   async execute(compiled: CompiledQuery): Promise<Result> {
