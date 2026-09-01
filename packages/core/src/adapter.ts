@@ -1,7 +1,7 @@
-import type { Query } from './index.js';
+import type { Query, QueryPolicy } from './index.js';
 
 export interface QueryAdapter<CompiledQuery = unknown, Result = unknown> {
-  compile(query: Query): CompiledQuery;
+  compile(query: Query, policy?: QueryPolicy): CompiledQuery;
   execute(compiled: CompiledQuery): Promise<Result> | Result;
 }
 
