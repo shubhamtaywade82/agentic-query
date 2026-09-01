@@ -7,7 +7,7 @@ require_relative "agentic_query/active_record"
 require_relative "agentic_query/schema"
 
 module AgenticQuery
-  VERSION = "0.1.0"
+  VERSION = "0.1.1"
 
   class QueryValidationError < StandardError; end
 
