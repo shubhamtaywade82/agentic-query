@@ -30,7 +30,7 @@
   "keywords": ["ai", "llm", "sql", "orm", "agent", "database", "rails", "node", "typescript"],
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.9.2",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   }
 }
