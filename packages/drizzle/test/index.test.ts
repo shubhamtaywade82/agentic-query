@@ -14,25 +14,27 @@ const schemaProvider = {
         relations: []
       }
     : undefined,
-  listEntities: () => [
-    {
-      name: 'orders',
-      table: 'orders',
-      primaryKey: 'id',
-      fields: [
-        { name: 'id', type: 'integer' },
-        { name: 'status', type: 'string' }
-      ],
-      relations: []
-    }
-  ]
+  listEntities: () => [{
+    name: 'orders',
+    table: 'orders',
+    primaryKey: 'id',
+    fields: [
+      { name: 'id', type: 'integer' },
+      { name: 'status', type: 'string' }
+    ],
+    relations: []
+  }]
 };
 
 describe('DrizzleAdapter', () => {
   it('delegates compilation and execution to application-owned functions', async () => {
+    const calls: unknown[] = [];
     const adapter = new DrizzleAdapter({
       schemaProvider,
-      compile: (query) => ({ query, compiled: true }),
+      compile: (query, policy) => {
+        calls.push(policy);
+        return { query, policy, compiled: true };
+      },
       execute: async (compiled) => ({ executed: compiled })
     });
 
@@ -42,10 +44,10 @@ describe('DrizzleAdapter', () => {
       limit: 10
     } as const;
 
-    const compiled = adapter.compile(query);
+    const policy = { allowedEntities: ['orders'], maxRows: 10 };
+    const compiled = adapter.compile(query, policy);
     expect(compiled.compiled).toBe(true);
-    await expect(adapter.execute(compiled)).resolves.toMatchObject({
-      executed: { compiled: true }
-    });
+    expect(calls).toEqual([policy]);
+    await expect(adapter.execute(compiled)).resolves.toMatchObject({ executed: { compiled: true } });
   });
 });
