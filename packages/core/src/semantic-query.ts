@@ -1,23 +1,16 @@
-import type { Query, SelectExpression } from './index.js';
+import type { Query, SelectExpression, SemanticQuery, QuerySelectExpression } from './index.js';
 import type { SemanticCatalog } from './semantic.js';
 
-export interface SemanticReference {
-  kind: 'metric' | 'dimension';
-  name: string;
-}
-
-export interface SemanticSelectExpression {
-  semantic: SemanticReference;
-  alias?: string;
-}
-
-export function resolveSemanticSelect(
-  expression: SemanticSelectExpression,
+function resolveSelectExpression(
+  expression: QuerySelectExpression,
   catalog: SemanticCatalog
 ): SelectExpression {
+  if ('field' in expression) return expression;
+
   if (expression.semantic.kind === 'metric') {
     const metric = catalog.getMetric(expression.semantic.name);
     if (!metric) throw new Error(`Unknown semantic metric: ${expression.semantic.name}`);
+
     return {
       field: { entity: metric.entity, field: metric.expression.field },
       aggregate: metric.expression.aggregate,
@@ -27,24 +20,33 @@ export function resolveSemanticSelect(
 
   const dimension = catalog.getDimension(expression.semantic.name);
   if (!dimension) throw new Error(`Unknown semantic dimension: ${expression.semantic.name}`);
+
   return {
     field: { entity: dimension.entity, field: dimension.field },
     alias: expression.alias ?? dimension.name
   };
 }
 
-/**
- * Resolve semantic select expressions embedded in a query-like object.
- * Physical Query objects are returned unchanged because the v0.1 AST does
- * not yet model semantic nodes directly. v0.2 semantic nodes are resolved
- * before this function receives the physical Query.
- */
+export function resolveSemanticSelect(
+  expression: Exclude<QuerySelectExpression, SelectExpression>,
+  catalog: SemanticCatalog
+): SelectExpression {
+  return resolveSelectExpression(expression, catalog);
+}
+
 export function resolveSemanticQuery(
-  query: Query,
+  query: SemanticQuery | Query,
   catalog: SemanticCatalog
 ): Query {
   return {
-    ...query,
-    select: query.select.map((selection) => selection)
+    source: query.source,
+    select: query.select.map((expression) => resolveSelectExpression(expression, catalog)),
+    joins: query.joins,
+    filters: query.filters,
+    groupBy: query.groupBy,
+    having: query.having,
+    orderBy: query.orderBy,
+    limit: query.limit,
+    offset: query.offset
   };
 }
