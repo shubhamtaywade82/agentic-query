@@ -24,7 +24,11 @@ RSpec.describe AgenticQuery::Executor do
     )
   end
 
-  let(:policy) { AgenticQuery::Policy.new(max_rows: 2, timeout_ms: 5_000) }
+  let(:policy) do
+    AgenticQuery::Policy.new(
+      execution_policy: AgenticQuery::ExecutionPolicy.new(max_rows: 2, timeout_ms: 5_000)
+    )
+  end
 
   before do
     ExecutorOrder.delete_all
