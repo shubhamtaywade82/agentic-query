@@ -57,12 +57,18 @@ module AgenticQuery
     end
 
     def authorize_fields!(query)
-      expressions = Array(query["select"])
-      expressions.concat(Array(query["groupBy"]).map { |field| { "field" => field } })
-      expressions.concat(Array(query["orderBy"]).map { |order| { "field" => order.fetch("field") } })
+      fields = []
+      fields.concat(Array(query["select"]).map { |expression| expression.fetch("field") })
+      fields.concat(Array(query["groupBy"]))
+      fields.concat(Array(query["orderBy"]).map { |order| order.fetch("field") })
+      fields.concat(Array(query["filters"]).map { |filter| filter.fetch("field") })
+      fields.concat(Array(query["having"]).map { |filter| filter.fetch("field") })
+      fields.concat(Array(query["joins"]).flat_map do |join|
+        on = join.fetch("on")
+        [on.fetch("left"), on.fetch("right")]
+      end)
 
-      expressions.each do |expression|
-        field = expression.fetch("field")
+      fields.each do |field|
         entity = field["entity"] || query.fetch("source").fetch("name")
         name = field.fetch("field")
 
