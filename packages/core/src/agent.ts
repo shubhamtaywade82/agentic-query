@@ -1,7 +1,9 @@
 import { QueryRepairer } from './repair.js';
 import { validateQuery, type Query, type SchemaProvider, type QueryAdapter, type ModelProvider, type QueryPolicy } from './index.js';
 import { StructuredQueryGenerator, QueryGenerationError } from './query-generator.js';
+import { SemanticQueryGenerator } from './semantic-generator.js';
 import { formatSchemaContext, SimpleSchemaRetriever, type SchemaRetriever } from './schema-retriever.js';
+import type { SemanticCatalog } from './semantic.js';
 
 export interface AgentPolicy extends QueryPolicy {}
 
@@ -13,6 +15,7 @@ export interface AgentOptions<CompiledQuery = unknown, Result = unknown> {
   policy?: AgentPolicy;
   systemPrompt?: string;
   schemaRetriever?: SchemaRetriever;
+  semanticCatalog?: SemanticCatalog;
   maxRepairAttempts?: number;
 }
 
@@ -25,6 +28,7 @@ export interface AgentResult<Result> {
 
 export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
   private readonly generator: StructuredQueryGenerator;
+  private readonly semanticGenerator?: SemanticQueryGenerator;
   private readonly schemaRetriever: SchemaRetriever;
   private readonly repairer: QueryRepairer;
   private readonly maxRepairAttempts: number;
@@ -34,6 +38,13 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
       provider: options.modelProvider,
       systemPrompt: options.systemPrompt
     });
+    if (options.semanticCatalog) {
+      this.semanticGenerator = new SemanticQueryGenerator({
+        provider: options.modelProvider,
+        catalog: options.semanticCatalog,
+        systemPrompt: options.systemPrompt
+      });
+    }
     this.schemaRetriever = options.schemaRetriever ?? new SimpleSchemaRetriever({
       provider: options.schemaProvider
     });
@@ -54,11 +65,20 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
     let repairAttempts = 0;
 
     try {
-      query = await this.generator.generate({
-        question,
-        model: this.options.model,
-        schemaContext
-      });
+      if (this.semanticGenerator && this.options.semanticCatalog) {
+        query = await this.semanticGenerator.generate({
+          question,
+          model: this.options.model,
+          schemaContext,
+          semanticContext: this.options.semanticCatalog.toPromptContext()
+        });
+      } else {
+        query = await this.generator.generate({
+          question,
+          model: this.options.model,
+          schemaContext
+        });
+      }
       validateQuery(query, policy);
     } catch (error) {
       const candidate = error instanceof QueryGenerationError ? error.candidate : {};
