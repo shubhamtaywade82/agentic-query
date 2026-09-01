@@ -1,6 +1,6 @@
 {
   "name": "@agentic-query/prisma",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Prisma adapter for Agentic Query",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,11 @@
       "import": "./dist/index.js"
     }
   },
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
@@ -33,7 +37,14 @@
   "bugs": {
     "url": "https://github.com/shubhamtaywade82/agentic-query/issues"
   },
-  "keywords": ["ai", "llm", "orm", "prisma", "agent", "database"],
+  "keywords": [
+    "ai",
+    "llm",
+    "orm",
+    "prisma",
+    "agent",
+    "database"
+  ],
   "license": "MIT",
   "devDependencies": {
     "typescript": "^7.0.2",

@@ -43,7 +43,28 @@ GitHub Actions
 
 ## Trusted publishing
 
-Use GitHub Actions OIDC/Trusted Publishing for npm and RubyGems rather than long-lived registry tokens where supported. Configure a protected GitHub `release` environment for publication jobs.
+Release publishing uses GitHub Actions OIDC/Trusted Publishing for npm and
+RubyGems rather than long-lived registry tokens where supported. Publication
+jobs run inside protected GitHub environments (`npm-publish`,
+`rubygems-publish`) configured with required reviewers.
+
+## Release pipeline
+
+The automated pipeline (`.github/workflows/release.yml`) is:
+
+```text
+tag v*.*.*
+  -> verify: pnpm check + Ruby RSpec + version/tag equality
+  -> dry-run: pack tarballs, verify contents, build gem, verify contents
+  -> publish npm (OIDC, --provenance) + verify packages resolve
+  -> publish RubyGems
+  -> verify CHANGELOG entry
+  -> GitHub release with generated notes
+```
+
+`workflow_dispatch` runs default to dry-run mode: artifacts are built and
+verified but nothing is published, which satisfies the publication-rehearsal
+requirement without registry side effects.
 
 ## Pre-release checklist
 
@@ -52,13 +73,19 @@ Use GitHub Actions OIDC/Trusted Publishing for npm and RubyGems rather than long
 - shared conformance tests pass;
 - security tests pass;
 - changelog updated;
-- package versions match the Git tag;
-- generated package contents are inspected;
+- package versions match the Git tag (enforced by `scripts/check-release.mjs`
+  across npm packages, the gemspec, the Ruby `VERSION` constant, and the
+  CHANGELOG);
+- generated package contents are inspected (the dry-run job verifies every
+  npm tarball contains `dist/index.js` and the gem ships `agentic_query.rb`
+  and `version.rb`);
 - release notes identify breaking changes.
 
 ## Provenance
 
-Public npm packages should publish with provenance enabled when the registry/workflow supports it. Release artifacts should be traceable to a Git commit/tag and workflow run.
+npm packages publish with `--provenance` so artifacts are traceable to the
+Git commit, tag, and workflow run. Release artifacts should be traceable to
+a Git commit/tag and workflow run.
 
 ## Publishing policy
 

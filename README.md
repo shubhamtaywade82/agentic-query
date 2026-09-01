@@ -68,6 +68,11 @@ const agent = new AgenticQueryAgent({
 });
 
 const result = await agent.ask('Show the top customers by revenue this month');
+
+result.query;        // validated Query AST
+result.result;       // adapter-specific execution result
+result.normalized;   // deterministic QueryResult (columns/rows/rowCount)
+result.answer;       // optional synthesized natural-language answer
 ```
 
 The exact adapter/provider construction depends on the host application.
@@ -92,7 +97,16 @@ See [SECURITY.md](SECURITY.md) and [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Status
 
-Early development. The core query, policy, semantic, retrieval, repair, and adapter foundations are implemented; production hardening, broader AST coverage, full adapter execution support, evaluation, and release validation are still in progress.
+v0.3.0. The deterministic core is implemented end to end: versioned query AST
+with structural validation and complexity limits, application-owned policies
+(entities, fields, operators, aggregates, joins, tenant/row constraints),
+semantic catalog with formulas and lineage, Tier 1–3 schema retrieval with
+denied-field scrubbing, bounded repair, deterministic result normalization,
+optional answer synthesis, an evaluation framework with golden and adversarial
+datasets, OpenTelemetry-compatible observability, a cross-ORM conformance
+suite, Prisma/Drizzle/Ollama integrations, and the Rails runtime with
+`AgenticQuery::Agent`. CI enforces typecheck, lint, tests, PostgreSQL
+integration, security suites, conformance, and coordinated versions.
 
 ## License
 

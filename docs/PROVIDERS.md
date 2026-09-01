@@ -16,18 +16,36 @@ The provider is responsible for communicating with the model and returning struc
 
 ## Ollama
 
-`@agentic-query/ollama` is a thin integration package. It should delegate Ollama transport to an existing Ollama client such as `@nemesis-oss/ollama-sdk` rather than duplicating the Ollama protocol implementation.
+`@agentic-query/ollama` is a hardened integration package. It delegates
+Ollama transport to a host-supplied client (such as
+`@nemesis-oss/ollama-sdk`) and adds model selection, per-request timeouts,
+bounded retry with backoff, usage/token accounting, trace metadata
+propagation, capability metadata, fail-closed malformed-output handling
+(`OllamaStructuredOutputError`), and normalized provider errors
+(`OllamaProviderError`).
 
-The Ruby implementation should follow the same separation with the host application's Ollama client.
+```ts
+import { OllamaProvider } from '@agentic-query/ollama';
+
+const provider = new OllamaProvider({
+  client: yourOllamaClient,   // host-owned transport
+  model: 'llama3.1',
+  timeoutMs: 30_000,
+  maxRetries: 2
+});
+```
+
+The Ruby implementation follows the same separation with the host
+application's Ollama client.
 
 ```text
 Agentic Query
       |
-ModelProvider
+ModelProvider (timeout, retry, usage, tracing, error normalization)
       |
 Ollama adapter
       |
-Ollama client SDK
+Ollama client SDK (host-owned)
       |
 Ollama server
 ```

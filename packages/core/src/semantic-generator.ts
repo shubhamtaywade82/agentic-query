@@ -1,5 +1,6 @@
 import { resolveSemanticQuery } from './semantic-query.js';
-import type { ModelProvider, Query, SemanticQuery } from './index.js';
+import type { Query, SemanticQuery } from './ast.js';
+import type { ModelProvider, TraceMetadata } from './model.js';
 import type { SemanticCatalog } from './semantic.js';
 
 export interface SemanticQueryGenerationRequest {
@@ -7,6 +8,7 @@ export interface SemanticQueryGenerationRequest {
   schemaContext: string;
   semanticContext: string;
   model: string;
+  trace?: TraceMetadata | undefined;
 }
 
 export interface SemanticQueryGeneratorOptions {
@@ -20,6 +22,7 @@ export const SEMANTIC_QUERY_SCHEMA = {
   additionalProperties: false,
   required: ['source', 'select'],
   properties: {
+    version: { enum: ['0.1', '0.2'] },
     source: {
       type: 'object',
       additionalProperties: false,
@@ -105,7 +108,8 @@ export class SemanticQueryGenerator {
             request.semanticContext
           ].join('\n')
         }
-      ]
+      ],
+      ...(request.trace ? { trace: request.trace } : {})
     });
 
     return resolveSemanticQuery(result.output, this.catalog);

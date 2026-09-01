@@ -1,10 +1,13 @@
 # frozen_string_literal: true
 
 module AgenticQuery
+  # Compiles and executes a policy-authorized query, returning normalized
+  # rows plus execution metadata.
   class Executor
-    def initialize(adapter:, policy: Policy.new)
+    def initialize(adapter:, policy: Policy.new, normalizer: nil)
       @adapter = adapter
       @policy = policy
+      @normalizer = normalizer || ResultNormalizer.new(max_rows: policy.max_rows)
     end
 
     def execute(query)
@@ -17,7 +20,15 @@ module AgenticQuery
         raise QueryExecutionError, "Query exceeded execution policy timeout"
       end
 
-      { "rows" => rows, "row_count" => rows.length, "duration_ms" => elapsed_ms }
+      {
+        "rows" => rows,
+        "row_count" => rows.length,
+        "duration_ms" => elapsed_ms,
+        "normalized" => @normalizer.normalize_rows(
+          rows,
+          metadata: { "durationMs" => elapsed_ms, "source" => @adapter.class.name }
+        )
+      }
     rescue QueryValidationError
       raise
     rescue StandardError => e

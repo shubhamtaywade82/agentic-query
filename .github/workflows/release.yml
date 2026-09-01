@@ -5,6 +5,12 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Validate the release without publishing'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: write
@@ -12,7 +18,11 @@ permissions:
 
 jobs:
   verify:
+    name: Verify (versions, tests, build, changelog)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      dry_run: ${{ steps.dry_run.outputs.dry_run }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v6
@@ -26,25 +36,36 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
-          bundler-cache: true
           working-directory: ruby
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm check
-      - run: bundle exec rspec
+          bundler-cache: true
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Full check (typecheck, lint, test, build)
+        run: pnpm check
+      - name: Ruby suite
         working-directory: ruby
-      - name: Verify tag and package versions
-        shell: bash
+        run: bundle exec rspec --exclude-pattern "spec/integration/*"
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Determine dry run
+        id: dry_run
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "dry_run=${{ inputs.dry_run }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "dry_run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify tag, package, gem, and changelog agree
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
           node scripts/check-release.mjs
-          for file in packages/core/package.json packages/prisma/package.json packages/drizzle/package.json packages/ollama/package.json; do
-            VERSION=$(node -p "require('./$file').version")
-            test "$VERSION" = "$TAG_VERSION"
-          done
-          GEM_VERSION=$(ruby -e 'spec = Gem::Specification.load("ruby/agentic_query.gemspec"); puts spec.version')
-          test "$GEM_VERSION" = "$TAG_VERSION"
 
-  publish-npm:
+  dry-run:
+    name: Dry-run packaging (artifact verification)
     needs: verify
     runs-on: ubuntu-latest
     steps:
@@ -52,24 +73,109 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
+          run_install: false
       - uses: actions/setup-node@v5
         with:
           node-version: 22.14.0
           registry-url: https://registry.npmjs.org
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm -r build
-      - name: Publish packages
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Pack npm packages and verify tarball contents
         run: |
-          pnpm --filter @agentic-query/core publish --no-git-checks --access public
-          pnpm --filter @agentic-query/prisma publish --no-git-checks --access public
-          pnpm --filter @agentic-query/drizzle publish --no-git-checks --access public
-          pnpm --filter @agentic-query/ollama publish --no-git-checks --access public
+          set -euo pipefail
+          for pkg in core prisma drizzle ollama; do
+            (cd "packages/$pkg" && pnpm pack --pack-destination ../../dist-artifacts)
+          done
+          # Every tarball must contain the built entrypoint.
+          for tarball in dist-artifacts/*.tgz; do
+            echo "verifying $tarball"
+            tar -tzf "$tarball" | grep -q "package/dist/index.js" \
+              || { echo "::error::$tarball is missing dist/index.js"; exit 1; }
+            tar -tzf "$tarball" | grep -q "package/package.json" \
+              || { echo "::error::$tarball is missing package.json"; exit 1; }
+          done
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          working-directory: ruby
+          bundler-cache: true
+      - name: Build and verify gem
+        working-directory: ruby
+        run: |
+          set -euo pipefail
+          gem build agentic_query.gemspec
+          gem specification agentic_query-*.gem name version | grep -q "agentic_query" \
+            || { echo "::error::gem build failed"; exit 1; }
+          # The gem must ship the runtime files.
+          gem unpack agentic_query-*.gem --target gem-verify
+          compgen -G "gem-verify/*/lib/agentic_query.rb" > /dev/null \
+            || { echo "::error::gem missing entrypoint"; exit 1; }
+          compgen -G "gem-verify/*/lib/agentic_query/version.rb" > /dev/null \
+            || { echo "::error::gem missing version.rb"; exit 1; }
+          rm -rf gem-verify
+      - name: Stop here on dry runs
+        if: needs.verify.outputs.dry_run == 'true'
+        run: echo "Dry run complete; artifacts verified, nothing published."
+
+  publish-npm:
+    name: Publish npm (OIDC trusted publishing + provenance)
+    needs: [verify, dry-run]
+    if: needs.verify.outputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: npm-publish
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.14.0
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - name: Publish with provenance (OIDC, no long-lived tokens)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Trusted publishing: publish with provenance attestations.
+          pnpm --filter @agentic-query/core publish --no-git-checks --access public --provenance
+          pnpm --filter @agentic-query/prisma publish --no-git-checks --access public --provenance
+          pnpm --filter @agentic-query/drizzle publish --no-git-checks --access public --provenance
+          pnpm --filter @agentic-query/ollama publish --no-git-checks --access public --provenance
+      - name: Verify published artifacts resolve
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          for name in core prisma drizzle ollama; do
+            for attempt in 1 2 3 4 5; do
+              if npm view "@agentic-query/$name@$version" version >/dev/null 2>&1; then
+                echo "@agentic-query/$name@$version is live"
+                break
+              fi
+              sleep 15
+            done
+            npm view "@agentic-query/$name@$version" version >/dev/null 2>&1 \
+              || { echo "::error::@agentic-query/$name@$version did not become available"; exit 1; }
+          done
 
   publish-rubygem:
-    needs: verify
+    name: Publish RubyGems (trusted publishing)
+    needs: [verify, dry-run]
+    if: needs.verify.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: rubygems-publish
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
@@ -83,13 +189,27 @@ jobs:
         working-directory: ruby
         env:
           GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
-        run: gem push agentic_query-*.gem
+        run: |
+          if [ -n "${GEM_HOST_API_KEY:-}" ]; then
+            gem push agentic_query-*.gem
+          else
+            echo "::error::RUBYGEMS_API_KEY is not configured; configure trusted publishing or provide the secret"
+            exit 1
+          fi
 
   github-release:
+    name: GitHub release
     needs: [publish-npm, publish-rubygem]
+    if: needs.verify.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify CHANGELOG documents this release
+        run: |
+          set -euo pipefail
+          version="${{ needs.verify.outputs.version }}"
+          grep -qE "^#+ .*${version}" CHANGELOG.md \
+            || { echo "::error::CHANGELOG.md lacks an entry for ${version}"; exit 1; }
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

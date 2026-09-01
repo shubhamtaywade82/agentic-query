@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "agentic_query"
+require "spec_helper"
 
 RSpec.describe AgenticQuery::Policy do
   let(:query) do
@@ -48,5 +48,40 @@ RSpec.describe AgenticQuery::Policy do
 
     expect { policy.authorize!(query) }
       .to raise_error(AgenticQuery::QueryValidationError, /limit exceeds/)
+  end
+
+  it "rejects operators outside the allowed set" do
+    policy = described_class.new
+    policy.allow_operators("gt")
+
+    expect { policy.authorize!(query) }
+      .to raise_error(AgenticQuery::QueryValidationError, /operator is not allowed/)
+  end
+
+  it "rejects aggregates outside the allowed set" do
+    aggregate_query = query.merge(
+      "select" => [{ "field" => { "field" => "amount" }, "aggregate" => "sum" }]
+    )
+    policy = described_class.new
+    policy.allow_aggregates("count")
+
+    expect { policy.authorize!(aggregate_query) }
+      .to raise_error(AgenticQuery::QueryValidationError, /Aggregate is not allowed/)
+  end
+
+  it "enforces a deterministic complexity ceiling" do
+    policy = described_class.new
+    policy.max_complexity = 1
+
+    expect { policy.validate_structure!(query) }
+      .to raise_error(AgenticQuery::QueryValidationError, /complexity 2 exceeds policy maximum 1/)
+  end
+
+  it "supports both execution_policy and convenience kwargs" do
+    expect(described_class.new(max_rows: 10).max_rows).to eq(10)
+    expect(described_class.new(timeout_ms: 500).timeout_ms).to eq(500)
+    expect do
+      described_class.new(execution_policy: AgenticQuery::ExecutionPolicy.new, max_rows: 10)
+    end.to raise_error(ArgumentError)
   end
 end

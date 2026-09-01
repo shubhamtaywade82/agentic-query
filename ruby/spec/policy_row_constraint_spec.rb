@@ -1,10 +1,6 @@
 # frozen_string_literal: true
 
-require_relative "spec_helper"
-
-class PolicyOrder < ActiveRecord::Base
-  self.table_name = "orders"
-end
+require "spec_helper"
 
 RSpec.describe "row-level policy enforcement" do
   it "adds the trusted application predicate to the relation" do
@@ -16,7 +12,7 @@ RSpec.describe "row-level policy enforcement" do
       "select" => [{ "field" => { "field" => "amount" } }]
     }
 
-    relation = AgenticQuery::ActiveRecordAdapter.new(models: { orders: PolicyOrder })
+    relation = AgenticQuery::ActiveRecordAdapter.new(models: { orders: Order })
       .compile(query, policy: policy)
 
     expect(relation.where_values_hash["account_id"]).to eq(42)

@@ -21,7 +21,7 @@ module AgenticQuery
           {
             "name" => column.name,
             "type" => column.type.to_s,
-            "nullable" => !column.null,
+            "nullable" => column.null,
             "default" => column.default
           }
         end,

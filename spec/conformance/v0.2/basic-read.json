@@ -4,36 +4,66 @@
     {
       "name": "basic selection with limit",
       "query": {
-        "source": { "name": "orders" },
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
         "select": [
-          { "field": { "entity": "orders", "field": "id" } },
-          { "field": { "entity": "orders", "field": "status" } }
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            }
+          },
+          {
+            "field": {
+              "entity": "orders",
+              "field": "status"
+            }
+          }
         ],
         "limit": 10
       },
       "expected": {
         "source": "orders",
-        "selectedFields": ["id", "status"],
+        "selectedFields": [
+          "id",
+          "status"
+        ],
         "limit": 10
       }
     },
     {
       "name": "filtered ordering",
       "query": {
-        "source": { "name": "orders" },
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
         "select": [
-          { "field": { "entity": "orders", "field": "id" } }
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            }
+          }
         ],
         "filters": [
           {
-            "field": { "entity": "orders", "field": "status" },
+            "field": {
+              "entity": "orders",
+              "field": "status"
+            },
             "operator": "eq",
             "value": "completed"
           }
         ],
         "orderBy": [
           {
-            "field": { "entity": "orders", "field": "id" },
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            },
             "direction": "desc"
           }
         ],
@@ -41,10 +71,291 @@
       },
       "expected": {
         "source": "orders",
-        "selectedFields": ["id"],
-        "filterFields": ["status"],
-        "orderBy": [{ "field": "id", "direction": "desc" }],
+        "selectedFields": [
+          "id"
+        ],
+        "filterFields": [
+          "status"
+        ],
+        "orderBy": [
+          {
+            "field": "id",
+            "direction": "desc"
+          }
+        ],
         "limit": 5
+      }
+    },
+    {
+      "name": "pagination with offset",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            }
+          }
+        ],
+        "orderBy": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            },
+            "direction": "asc"
+          }
+        ],
+        "limit": 20,
+        "offset": 40
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [
+          "id"
+        ],
+        "orderBy": [
+          {
+            "field": "id",
+            "direction": "asc"
+          }
+        ],
+        "limit": 20,
+        "offset": 40
+      }
+    },
+    {
+      "name": "aggregate without grouping",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "amount"
+            },
+            "aggregate": "sum",
+            "alias": "total_amount"
+          },
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            },
+            "aggregate": "count",
+            "alias": "order_count"
+          }
+        ],
+        "filters": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "status"
+            },
+            "operator": "eq",
+            "value": "completed"
+          }
+        ]
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [],
+        "filterFields": [
+          "status"
+        ],
+        "aggregateFunctions": [
+          {
+            "function": "sum",
+            "field": "amount"
+          },
+          {
+            "function": "count",
+            "field": "id"
+          }
+        ]
+      }
+    },
+    {
+      "name": "group by with aggregates",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "status"
+            }
+          },
+          {
+            "field": {
+              "entity": "orders",
+              "field": "amount"
+            },
+            "aggregate": "sum",
+            "alias": "revenue"
+          }
+        ],
+        "groupBy": [
+          {
+            "entity": "orders",
+            "field": "status"
+          }
+        ],
+        "orderBy": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "status"
+            },
+            "direction": "asc"
+          }
+        ]
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [
+          "status"
+        ],
+        "groupByFields": [
+          "status"
+        ],
+        "aggregateFunctions": [
+          {
+            "function": "sum",
+            "field": "amount"
+          }
+        ],
+        "orderBy": [
+          {
+            "field": "status",
+            "direction": "asc"
+          }
+        ]
+      }
+    },
+    {
+      "name": "join over registered relation",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            }
+          },
+          {
+            "field": {
+              "entity": "accounts",
+              "field": "name"
+            }
+          }
+        ],
+        "joins": [
+          {
+            "entity": {
+              "name": "accounts"
+            },
+            "type": "inner",
+            "on": {
+              "left": {
+                "entity": "orders",
+                "field": "account_id"
+              },
+              "right": {
+                "entity": "accounts",
+                "field": "id"
+              }
+            }
+          }
+        ]
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [
+          "id",
+          "name"
+        ],
+        "joinEntities": [
+          "accounts"
+        ]
+      }
+    },
+    {
+      "name": "policy rejects unauthorized entity",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "id"
+            }
+          }
+        ]
+      },
+      "policy": {
+        "allowedEntities": [
+          "invoices"
+        ]
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [
+          "id"
+        ],
+        "expectRejection": {
+          "contains": "Entity is not allowed"
+        }
+      }
+    },
+    {
+      "name": "policy rejects denied field",
+      "query": {
+        "version": "0.2",
+        "source": {
+          "name": "orders"
+        },
+        "select": [
+          {
+            "field": {
+              "entity": "orders",
+              "field": "internal_note"
+            }
+          }
+        ]
+      },
+      "policy": {
+        "deniedFields": {
+          "orders": [
+            "internal_note"
+          ]
+        }
+      },
+      "expected": {
+        "source": "orders",
+        "selectedFields": [
+          "internal_note"
+        ],
+        "expectRejection": {
+          "contains": "Field is not allowed"
+        }
       }
     }
   ]

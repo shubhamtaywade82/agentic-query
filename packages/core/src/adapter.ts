@@ -1,14 +1,15 @@
-import type { Query, QueryPolicy } from './index.js';
+import type { Query } from './ast.js';
+import type { QueryPolicy } from './policy.js';
 
 export interface QueryAdapter<CompiledQuery = unknown, Result = unknown> {
-  compile(query: Query, policy?: QueryPolicy): CompiledQuery;
+  compile(query: Query, policy?: QueryPolicy | undefined): CompiledQuery;
   execute(compiled: CompiledQuery): Promise<Result> | Result;
 }
 
 export interface EntitySchema {
   name: string;
-  table?: string;
-  primaryKey?: string;
+  table?: string | undefined;
+  primaryKey?: string | undefined;
   fields: readonly FieldSchema[];
   relations: readonly RelationSchema[];
 }
@@ -16,13 +17,13 @@ export interface EntitySchema {
 export interface FieldSchema {
   name: string;
   type: string;
-  nullable?: boolean;
+  nullable?: boolean | undefined;
 }
 
 export interface RelationSchema {
   name: string;
   target: string;
-  type?: string;
+  type?: string | undefined;
 }
 
 export interface SchemaProvider {

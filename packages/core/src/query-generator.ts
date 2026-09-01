@@ -1,12 +1,12 @@
-import { QueryValidationError } from './errors.js';
-import { validateQuery, type ModelProvider, type Query, type QueryGenerationRequest } from './index.js';
-import type { QueryGenerator } from './model.js';
+import { QueryValidationError, validateQuery, type Query } from './ast.js';
+import type { ModelProvider, QueryGenerationRequest, QueryGenerator } from './model.js';
 
 export const QUERY_AST_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['source', 'select'],
   properties: {
+    version: { enum: ['0.1', '0.2'] },
     source: {
       type: 'object',
       additionalProperties: false,
@@ -51,7 +51,7 @@ export interface StructuredQueryGeneratorOptions {
 }
 
 export class QueryGenerationError extends QueryValidationError {
-  readonly code = 'QUERY_GENERATION_ERROR';
+  override readonly code = 'QUERY_GENERATION_ERROR';
 
   constructor(message: string, readonly candidate: unknown, readonly cause?: unknown) {
     super(message);
@@ -90,14 +90,15 @@ export class StructuredQueryGenerator implements QueryGenerator {
               request.schemaContext
             ].join('\n')
           }
-        ]
+        ],
+        ...(request.trace ? { trace: request.trace } : {})
       });
       output = result.output;
       validateQuery(result.output);
       return result.output;
     } catch (error) {
       if (error instanceof QueryGenerationError) throw error;
-      const message = error instanceof Error ? error.message : 'Model produced an invalid query AST';
+      const message = error instanceof QueryValidationError ? error.message : 'Model produced an invalid query AST';
       throw new QueryGenerationError(message, output, error);
     }
   }

@@ -30,18 +30,39 @@ const agent = new AgenticQueryAgent({
 const answer = await agent.ask('Show the top customers by revenue this month');
 ```
 
-The model produces structured query intent. The runtime validates it before adapter execution.
+The model produces structured query intent. The runtime validates it against
+the policy, repairs bounded failures, compiles through the adapter, executes,
+normalizes the result deterministically, and can synthesize an answer from
+the normalized result alone.
+
+```ts
+const result = await agent.ask('Show the top customers by revenue this month');
+result.normalized; // QueryResult { columns, rows, rowCount, metadata }
+result.answer;     // optional synthesis from the normalized result only
+```
 
 ## Rails
 
-Add the `agentic_query` gem to the application and configure the ActiveRecord adapter. Keep database credentials and authorization in the Rails application.
+Add the `agentic_query` gem to the application and configure the ActiveRecord
+adapter. Keep database credentials and authorization in the Rails application.
 
 ```ruby
-AgenticQuery.policy do
-  allow :read, Order
-  allow :read, Customer
-  deny_fields Customer, [:password_digest]
-end
+models = { orders: Order, customers: Customer }
+policy = AgenticQuery::Policy.new(max_rows: 100)
+policy.allow_entities("orders", "customers")
+policy.deny_fields("customers", "password_digest")
+policy.constrain_tenant("orders") { |relation| relation.where(account_id: Current.account.id) }
+
+agent = AgenticQuery::Agent.new(
+  model: "qwen3",
+  provider: ollama_provider,
+  schema: AgenticQuery::Schema.new(models: models),
+  adapter: AgenticQuery::ActiveRecordAdapter.new(models: models),
+  policy: policy
+)
+
+result = agent.ask("What was revenue for completed orders?")
+result.normalized # { "columns" => ..., "rows" => ..., "row_count" => ... }
 ```
 
 ## Semantic metrics
@@ -55,13 +76,20 @@ const catalog = new SemanticCatalog({
       name: 'revenue',
       description: 'Completed order value',
       entity: 'orders',
-      expression: { field: 'amount', aggregate: 'sum' }
+      expression: { field: 'amount', aggregate: 'sum', filter: [
+        { field: { entity: 'orders', field: 'status' }, operator: 'eq', value: 'completed' }
+      ] },
+      units: 'USD',
+      timeGrain: 'day',
+      synonyms: ['sales', 'turnover']
     }
   ]
 });
 ```
 
-A semantic reference is resolved by trusted runtime code before ORM compilation.
+A semantic reference is resolved by trusted runtime code before ORM
+compilation; derived metrics expand into deterministic computation trees.
+Unknown metric names fail closed.
 
 ## Security model
 

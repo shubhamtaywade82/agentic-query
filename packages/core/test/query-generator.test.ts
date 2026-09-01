@@ -47,4 +47,19 @@ describe('StructuredQueryGenerator', () => {
       model: 'qwen3'
     })).rejects.toThrow('Query must have at least one select expression');
   });
+
+  it('attaches the invalid candidate to the generation error', async () => {
+    const invalid = { source: { name: 'orders' }, select: [] };
+    const provider = providerReturning(invalid, {});
+    const generator = new StructuredQueryGenerator({ provider });
+
+    const error = await generator.generate({
+      question: 'List orders',
+      schemaContext: 'orders(id)',
+      model: 'qwen3'
+    }).catch((failure) => failure as { candidate?: unknown; code?: string });
+
+    expect(error.candidate).toEqual(invalid);
+    expect(error.code).toBe('QUERY_GENERATION_ERROR');
+  });
 });

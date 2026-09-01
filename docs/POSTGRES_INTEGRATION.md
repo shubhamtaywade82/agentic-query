@@ -8,7 +8,23 @@ Compilation tests can prove that an adapter returns a native query representatio
 
 ## Test environment
 
-Use a disposable PostgreSQL instance in CI (for example, a GitHub Actions service container) and create a minimal schema containing `customers`, `orders`, and `line_items`.
+Use a disposable PostgreSQL instance in CI (a GitHub Actions service
+container running `postgres:17`) and a minimal schema containing `accounts`
+and `orders`. The integration job fails when zero examples execute — the
+PostgreSQL suite is mandatory, not advisory.
+
+## Timeouts and cancellation
+
+`AgenticQuery::PostgreSQLAdapter` enforces per-query
+`statement_timeout` with `SET LOCAL` inside a transaction, so the timeout:
+
+- is enforced by the database (cancellation, not a post-hoc elapsed check);
+- is automatically reset when the transaction ends, keeping pooled
+  connections clean;
+- maps statement-timeout errors to `QueryExecutionError`.
+
+A deterministic slow fixture (`SELECT pg_sleep(...)`) verifies cancellation
+in CI, and a `SHOW statement_timeout` assertion verifies the reset.
 
 ## Required assertions
 

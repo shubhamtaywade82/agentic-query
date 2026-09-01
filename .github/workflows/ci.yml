@@ -8,39 +8,67 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typescript:
+    name: TypeScript (typecheck, lint, unit, build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.15.0
           run_install: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v5
         with:
           node-version: 22.14.0
           cache: pnpm
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm build
-      - run: pnpm typecheck
-      - run: pnpm test
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint
+        run: pnpm lint
+      - name: Unit tests (fail on zero tests)
+        run: |
+          set -euo pipefail
+          output=$(pnpm test 2>&1 | tee /dev/stderr)
+          # Zero-test guard: every package must actually execute tests.
+          echo "$output" | grep -q "packages/core test:" \
+            || { echo "::error::core package ran no tests"; exit 1; }
+          echo "$output" | grep -q "packages/prisma test:" \
+            || { echo "::error::prisma package ran no tests"; exit 1; }
+          echo "$output" | grep -q "packages/drizzle test:" \
+            || { echo "::error::drizzle package ran no tests"; exit 1; }
+          echo "$output" | grep -q "packages/ollama test:" \
+            || { echo "::error::ollama package ran no tests"; exit 1; }
+      - name: Build
+        run: pnpm build
 
   ruby:
+    name: Ruby (RSpec, SQLite fast suite)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ruby
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
-          working-directory: ruby
-      - run: bundle exec rspec
+      - name: RSpec with zero-example guard
+        run: |
+          set -euo pipefail
+          output=$(bundle exec rspec --exclude-pattern "spec/integration/*" 2>&1 | tee /dev/stderr)
+          examples=$(echo "$output" | grep -oE '[0-9]+ examples?' | head -1 | grep -oE '[0-9]+')
+          test "${examples:-0}" -gt 0 || { echo "::error::Ruby suite executed 0 examples"; exit 1; }
 
-  postgres:
+  postgres-integration:
+    name: PostgreSQL integration (Ruby)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -60,26 +88,110 @@ jobs:
       run:
         working-directory: ruby
     steps:
-      - uses: actions/checkout@v7
-      - name: Verify PostgreSQL
-        env:
-          PGHOST: localhost
-          PGPORT: 5432
-          PGUSER: postgres
-          PGPASSWORD: postgres
-          PGDATABASE: agentic_query_test
-        working-directory: .
-        run: psql -c 'select version();'
+      - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
+      - name: Run PostgreSQL integration suite
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
+        run: |
+          set -euo pipefail
+          output=$(bundle exec rspec spec/integration --format progress 2>&1 | tee /dev/stderr)
+          # The integration suite must actually run its examples.
+          examples=$(echo "$output" | grep -oE '[0-9]+ examples?' | head -1 | grep -oE '[0-9]+')
+          pending=$(echo "$output" | grep -oE '[0-9]+ pending' | head -1 | grep -oE '[0-9]+' || echo 0)
+          executed=$(( ${examples:-0} - ${pending:-0} ))
+          echo "total=${examples:-0} pending=${pending:-0} executed=${executed}"
+          test "${examples:-0}" -gt 0 || { echo "::error::Integration suite executed 0 examples"; exit 1; }
+          test "${executed}" -gt 0 || { echo "::error::All integration examples were skipped; PostgreSQL tests are mandatory"; exit 1; }
+
+  security:
+    name: Security tests (policy, adversarial, injection)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ruby
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Ruby security suite (tenant isolation, denied fields, fail-closed)
+        run: |
+          set -euo pipefail
+          output=$(bundle exec rspec spec/policy_security_spec.rb spec/policy_spec.rb spec/agentic_query_spec.rb spec/policy_row_constraint_spec.rb --format progress 2>&1 | tee /dev/stderr)
+          examples=$(echo "$output" | grep -oE '[0-9]+ examples?' | head -1 | grep -oE '[0-9]+')
+          test "${examples:-0}" -gt 0 || { echo "::error::Security suite executed 0 examples"; exit 1; }
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: TypeScript security and adversarial suites
+        working-directory: .
+        run: |
+          set -euo pipefail
+          cd packages/core
+          output=$(npx vitest run test/validation-security.test.ts test/evaluation.test.ts test/policy.test.ts test/conformance.test.ts 2>&1 | tee /dev/stderr)
+          tests=$(echo "$output" | grep -oE '[0-9]+ tests?' | tail -1 | grep -oE '[0-9]+')
+          test "${tests:-0}" -gt 0 || { echo "::error::Security suites executed 0 tests"; exit 1; }
+
+  conformance:
+    name: Cross-ORM conformance suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Build packages
+        run: pnpm build
+      - name: Run shared conformance fixtures (core, prisma, drizzle)
+        run: |
+          set -euo pipefail
+          cd packages/core
+          output=$(npx vitest run test/conformance.test.ts 2>&1 | tee /dev/stderr)
+          echo "$output" | grep -q "passed" || { echo "::error::core conformance failed"; exit 1; }
+          cd ../prisma
+          output=$(npx vitest run test/index.test.ts 2>&1 | tee /dev/stderr)
+          echo "$output" | grep -q "conformance suite" || { echo "::error::prisma conformance did not run"; exit 1; }
+          cd ../drizzle
+          npx vitest run 2>&1 | tee /dev/stderr | grep -q "passed" || { echo "::error::drizzle conformance failed"; exit 1; }
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
           working-directory: ruby
-      - name: Run PostgreSQL integration tests
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
-        run: bundle exec rspec spec/integration --format progress
-      - name: Assert integration suite executed
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/agentic_query_test
-        run: bundle exec rspec spec/integration --format progress --fail-fast
+          bundler-cache: true
+      - name: Ruby conformance against shared fixtures
+        working-directory: ruby
+        run: |
+          set -euo pipefail
+          output=$(bundle exec rspec spec/conformance_spec.rb --format progress 2>&1 | tee /dev/stderr)
+          examples=$(echo "$output" | grep -oE '[0-9]+ examples?' | head -1 | grep -oE '[0-9]+')
+          test "${examples:-0}" -gt 0 || { echo "::error::Ruby conformance executed 0 examples"; exit 1; }
+
+  version-consistency:
+    name: Version consistency (npm, gem, VERSION, CHANGELOG, lockfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22.14.0
+      - name: Check coordinated versions
+        run: node scripts/check-release.mjs

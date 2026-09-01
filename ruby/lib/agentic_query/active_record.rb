@@ -22,11 +22,15 @@ module AgenticQuery
       "lte" => :lte
     }.freeze
 
+    # Trusted execution order (plan Phase R3):
+    #   authorize -> tenant scope -> row constraint -> joins -> filters
+    #   -> select -> group -> having -> order -> bounded limit -> offset
     def initialize(models:)
       @models = models.transform_keys(&:to_s)
     end
 
     def compile(query, policy: Policy.new)
+      policy.validate_structure!(query)
       policy.authorize!(query)
       source_name = query.fetch("source").fetch("name").to_s
       model = @models.fetch(source_name) do
@@ -39,7 +43,7 @@ module AgenticQuery
       relation = apply_joins(relation, query, policy)
       relation = apply_filters(relation, query)
       relation = apply_select(relation, query)
-      groups = group_columns(query, model)
+      groups = group_columns(relation, query, model)
       relation = relation.group(*groups) unless groups.empty?
       relation = apply_having(relation, query)
       relation = apply_order(relation, query)
@@ -69,23 +73,56 @@ module AgenticQuery
         entity = join.fetch("entity").fetch("name").to_s
         raise QueryValidationError, "Entity is not allowed: #{entity}" unless policy.entity_allowed?(entity)
 
-        association = relation.klass.reflect_on_all_associations.find { |reflection| reflection.name.to_s == entity }
+        association = find_association(relation.klass, entity)
         raise QueryValidationError, "Join is not a registered association: #{entity}" unless association
 
-        relation = relation.joins(association.name)
+        join_type = join["type"].to_s
+        relation =
+          if join_type == "left"
+            relation.left_outer_joins(association.name)
+          else
+            relation.joins(association.name)
+          end
       end
       relation
     end
 
-    def apply_filters(relation, query)
-      table = relation.klass.arel_table
+    # Resolves an AST entity name (commonly plural) to a registered
+    # association, matching singular/plural and exact names. Joins remain
+    # fail-closed: only registered associations resolve.
+    def find_association(klass, entity)
+      candidates = [entity, entity.singularize, entity.pluralize].uniq
+      klass.reflect_on_all_associations.find do |reflection|
+        candidates.include?(reflection.name.to_s)
+      end
+    end
 
+    # Resolves the arel table for a field reference, honoring joined entities.
+    def table_for(relation, entity)
+      return relation.klass.arel_table if entity.nil?
+
+      model = @models[entity.to_s]
+      return relation.klass.arel_table unless model
+
+      model.arel_table
+    end
+
+    def validate_column!(relation, field)
+      entity = field["entity"]
+      name = field.fetch("field").to_s
+      model = entity && @models[entity.to_s] ? @models[entity.to_s] : relation.klass
+      return if model.column_names.include?(name)
+
+      raise QueryValidationError, "Column is not available: #{model.name}.#{name}"
+    end
+
+    def apply_filters(relation, query)
       Array(query["filters"]).each do |filter|
         field = filter.fetch("field")
-        name = field.fetch("field").to_s
-        validate_column!(relation.klass, name)
+        validate_column!(relation, field)
+        table = table_for(relation, field["entity"])
+        column = table[field.fetch("field").to_s]
         operator = filter.fetch("operator").to_s
-        column = table[name]
 
         predicate = case operator
                     when "is_null" then column.eq(nil)
@@ -95,6 +132,7 @@ module AgenticQuery
                     when "between"
                       values = filter.fetch("values")
                       raise QueryValidationError, "between requires exactly two values" unless values.length == 2
+
                       column.between(values[0]..values[1])
                     when "like" then column.matches(filter.fetch("value"))
                     when *PREDICATES.keys then column.public_send(PREDICATES.fetch(operator), filter.fetch("value"))
@@ -110,9 +148,9 @@ module AgenticQuery
     def apply_select(relation, query)
       expressions = query.fetch("select").map do |expression|
         field = expression.fetch("field")
-        name = field.fetch("field").to_s
-        validate_column!(relation.klass, name)
-        column = relation.klass.arel_table[name]
+        validate_column!(relation, field)
+        table = table_for(relation, field["entity"])
+        column = table[field.fetch("field").to_s]
 
         aggregate = expression["aggregate"]
         if aggregate
@@ -123,15 +161,13 @@ module AgenticQuery
           expression["alias"] ? column.as(expression["alias"].to_s) : column
         end
       end
-
       relation.select(*expressions)
     end
 
-    def group_columns(query, model)
+    def group_columns(relation, query, _model)
       Array(query["groupBy"]).map do |field|
-        name = field.fetch("field").to_s
-        validate_column!(model, name)
-        model.arel_table[name]
+        validate_column!(relation, field)
+        table_for(relation, field["entity"])[field.fetch("field").to_s]
       end
     end
 
@@ -143,20 +179,14 @@ module AgenticQuery
 
     def apply_order(relation, query)
       Array(query["orderBy"]).each do |order|
-        name = order.fetch("field").fetch("field").to_s
-        validate_column!(relation.klass, name)
+        field = order.fetch("field")
+        validate_column!(relation, field)
         direction = order.fetch("direction").to_s.downcase
         raise QueryValidationError, "Invalid order direction" unless %w[asc desc].include?(direction)
 
-        relation = relation.order(name => direction.to_sym)
+        relation = relation.order(field.fetch("field").to_s => direction.to_sym)
       end
       relation
-    end
-
-    def validate_column!(model, name)
-      return if model.column_names.include?(name)
-
-      raise QueryValidationError, "Column is not available: #{model.name}.#{name}"
     end
   end
 end

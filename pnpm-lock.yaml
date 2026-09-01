@@ -39,7 +39,7 @@ importers:
         specifier: workspace:*
         version: link:../core
       '@nemesis-oss/ollama-sdk':
-        specifier: ^1.1.0
+        specifier: '>=1.1.0'
         version: 1.3.0(zod@4.5.4)
     devDependencies:
       typescript:
