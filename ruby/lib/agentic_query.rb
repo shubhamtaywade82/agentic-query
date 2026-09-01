@@ -2,6 +2,7 @@
 
 require "set"
 require_relative "agentic_query/policy"
+require_relative "agentic_query/row_constraint"
 require_relative "agentic_query/active_record"
 require_relative "agentic_query/schema"
 
