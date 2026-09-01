@@ -55,12 +55,7 @@ module AgenticQuery
       constraint = policy.row_constraint(entity)
       return relation unless constraint
 
-      constrained = constraint.call(relation)
-      unless constrained.is_a?(ActiveRecord::Relation)
-        raise QueryValidationError, "Row constraint must return an ActiveRecord::Relation"
-      end
-
-      constrained
+      constraint.apply(relation)
     end
 
     def apply_joins(relation, query, policy)
@@ -140,7 +135,7 @@ module AgenticQuery
         name = field.fetch("field").to_s
         validate_column!(relation.klass, name)
         operator = filter.fetch("operator").to_s
-        value = filter["value"]
+        value = filter.fetch("value")
         aggregate = Arel::Nodes::NamedFunction.new("COUNT", [relation.klass.arel_table[name]])
 
         predicate = case operator
