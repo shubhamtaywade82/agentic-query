@@ -1,17 +1,5 @@
 export type Aggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
-export type ComparisonOperator =
-  | 'eq'
-  | 'neq'
-  | 'gt'
-  | 'gte'
-  | 'lt'
-  | 'lte'
-  | 'in'
-  | 'not_in'
-  | 'like'
-  | 'is_null'
-  | 'is_not_null'
-  | 'between';
+export type ComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'like' | 'is_null' | 'is_not_null' | 'between';
 
 export interface EntityRef { name: string }
 export interface FieldRef { entity?: string; field: string }
@@ -71,12 +59,6 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
 }
 
 export type { EntitySchema, FieldSchema, RelationSchema, QueryAdapter, SchemaProvider } from './adapter.js';
-export type {
-  ModelMessage,
-  StructuredGenerationRequest,
-  StructuredGenerationResult,
-  ModelProvider,
-  QueryGenerationRequest,
-  QueryGenerator
-} from './model.js';
+export type { ModelMessage, StructuredGenerationRequest, StructuredGenerationResult, ModelProvider, QueryGenerationRequest, QueryGenerator } from './model.js';
 export { StructuredQueryGenerator, QUERY_AST_SCHEMA } from './query-generator.js';
+export { AgenticQueryAgent, type AgentOptions, type AgentPolicy, type AgentResult } from './agent.js';
