@@ -36,11 +36,13 @@ module AgenticQuery
       end
 
       relation = model.all
-      relation = apply_joins(relation, query)
+      relation = apply_row_constraint(relation, policy, source_name)
+      relation = apply_joins(relation, query, policy)
       relation = apply_filters(relation, query)
       relation = apply_select(relation, query)
       groups = group_columns(query, model)
       relation = relation.group(*groups) unless groups.empty?
+      relation = apply_having(relation, query)
       relation = apply_order(relation, query)
       relation = relation.limit([query["limit"] || policy.max_rows, policy.max_rows].min)
       relation = relation.offset(query["offset"]) if query["offset"]
@@ -49,9 +51,23 @@ module AgenticQuery
 
     private
 
-    def apply_joins(relation, query)
+    def apply_row_constraint(relation, policy, entity)
+      constraint = policy.row_constraint(entity)
+      return relation unless constraint
+
+      constrained = constraint.call(relation)
+      unless constrained.is_a?(ActiveRecord::Relation)
+        raise QueryValidationError, "Row constraint must return an ActiveRecord::Relation"
+      end
+
+      constrained
+    end
+
+    def apply_joins(relation, query, policy)
       Array(query["joins"]).each do |join|
         entity = join.fetch("entity").fetch("name").to_s
+        raise QueryValidationError, "Entity is not allowed: #{entity}" unless policy.entity_allowed?(entity)
+
         association = relation.klass.reflect_on_all_associations.find { |reflection| reflection.name.to_s == entity }
         raise QueryValidationError, "Join is not a registered association: #{entity}" unless association
 
@@ -116,6 +132,31 @@ module AgenticQuery
         validate_column!(model, name)
         model.arel_table[name]
       end
+    end
+
+    def apply_having(relation, query)
+      Array(query["having"]).each do |filter|
+        field = filter.fetch("field")
+        name = field.fetch("field").to_s
+        validate_column!(relation.klass, name)
+        operator = filter.fetch("operator").to_s
+        value = filter["value"]
+        aggregate = Arel::Nodes::NamedFunction.new("COUNT", [relation.klass.arel_table[name]])
+
+        predicate = case operator
+                    when "eq" then aggregate.eq(value)
+                    when "neq" then aggregate.not_eq(value)
+                    when "gt" then aggregate.gt(value)
+                    when "gte" then aggregate.gteq(value)
+                    when "lt" then aggregate.lt(value)
+                    when "lte" then aggregate.lteq(value)
+                    else
+                      raise QueryValidationError, "Unsupported having operator: #{operator}"
+                    end
+
+        relation = relation.having(predicate)
+      end
+      relation
     end
 
     def apply_order(relation, query)
