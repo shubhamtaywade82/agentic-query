@@ -79,3 +79,4 @@ export type {
   QueryGenerationRequest,
   QueryGenerator
 } from './model.js';
+export { StructuredQueryGenerator, QUERY_AST_SCHEMA } from './query-generator.js';
