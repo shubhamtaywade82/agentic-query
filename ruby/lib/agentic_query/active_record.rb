@@ -4,8 +4,6 @@ require "active_record"
 require "arel"
 
 module AgenticQuery
-  # Compiles the language-neutral Query AST into an ActiveRecord::Relation.
-  # Entity names are resolved only through an explicit registry.
   class ActiveRecordAdapter
     AGGREGATES = {
       "count" => "COUNT",
@@ -21,7 +19,7 @@ module AgenticQuery
       "gt" => :gt,
       "gte" => :gteq,
       "lt" => :lt,
-      "lte" => :lteq
+      "lte" => :lte
     }.freeze
 
     def initialize(models:)
@@ -130,28 +128,9 @@ module AgenticQuery
     end
 
     def apply_having(relation, query)
-      Array(query["having"]).each do |filter|
-        field = filter.fetch("field")
-        name = field.fetch("field").to_s
-        validate_column!(relation.klass, name)
-        operator = filter.fetch("operator").to_s
-        value = filter.fetch("value")
-        aggregate = Arel::Nodes::NamedFunction.new("COUNT", [relation.klass.arel_table[name]])
+      return relation if Array(query["having"]).empty?
 
-        predicate = case operator
-                    when "eq" then aggregate.eq(value)
-                    when "neq" then aggregate.not_eq(value)
-                    when "gt" then aggregate.gt(value)
-                    when "gte" then aggregate.gteq(value)
-                    when "lt" then aggregate.lt(value)
-                    when "lte" then aggregate.lteq(value)
-                    else
-                      raise QueryValidationError, "Unsupported having operator: #{operator}"
-                    end
-
-        relation = relation.having(predicate)
-      end
-      relation
+      raise QueryValidationError, "HAVING expressions require an aggregate expression API"
     end
 
     def apply_order(relation, query)
