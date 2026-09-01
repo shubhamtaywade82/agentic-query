@@ -1,18 +1,23 @@
 # frozen_string_literal: true
 
+require "set"
+
 module AgenticQuery
   # Deterministic authorization and resource policy for model-generated queries.
   # Policies are application code and are never delegated to the model.
   class Policy
     attr_reader :max_rows, :timeout_ms
 
-    def initialize(max_rows: 1_000, timeout_ms: 5_000, row_constraints: {})
+    def initialize(max_rows: 1_000, timeout_ms: 5_000, row_constraints: {}, tenant_scopes: {})
       @max_rows = Integer(max_rows)
       @timeout_ms = Integer(timeout_ms)
       @allowed_entities = nil
       @denied_fields = Hash.new { |hash, key| hash[key] = [] }
       @row_constraints = row_constraints.transform_keys(&:to_s).transform_values do |constraint|
         constraint.is_a?(RowConstraint) ? constraint : RowConstraint.new(constraint)
+      end
+      @tenant_scopes = tenant_scopes.transform_keys(&:to_s).transform_values do |scope|
+        scope.is_a?(TenantScope) ? scope : TenantScope.new(scope)
       end
     end
 
@@ -30,8 +35,18 @@ module AgenticQuery
       @row_constraints[entity.to_s] = RowConstraint.new(constraint)
     end
 
+    def constrain_tenant(entity, &scope)
+      raise ArgumentError, "tenant scope requires a block" unless scope
+
+      @tenant_scopes[entity.to_s] = TenantScope.new(scope)
+    end
+
     def row_constraint(entity)
       @row_constraints[entity.to_s]
+    end
+
+    def tenant_scope(entity)
+      @tenant_scopes[entity.to_s]
     end
 
     def authorize!(query)
