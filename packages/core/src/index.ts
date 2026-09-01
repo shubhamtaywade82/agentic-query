@@ -34,7 +34,9 @@ export class QueryValidationError extends Error {
 }
 
 export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
-  if (query.select.length === 0) throw new QueryValidationError('Query must select at least one expression');
+  if (!query || !query.source?.name || !Array.isArray(query.select) || query.select.length === 0) {
+    throw new QueryValidationError('Query must have a source and at least one select expression');
+  }
   if (policy.maxRows !== undefined && query.limit !== undefined && query.limit > policy.maxRows) {
     throw new QueryValidationError('Query limit exceeds policy maximum');
   }
@@ -62,3 +64,4 @@ export type { EntitySchema, FieldSchema, RelationSchema, QueryAdapter, SchemaPro
 export type { ModelMessage, StructuredGenerationRequest, StructuredGenerationResult, ModelProvider, QueryGenerationRequest, QueryGenerator } from './model.js';
 export { StructuredQueryGenerator, QUERY_AST_SCHEMA } from './query-generator.js';
 export { AgenticQueryAgent, type AgentOptions, type AgentPolicy, type AgentResult } from './agent.js';
+export { QueryRepairer, QueryRepairError, type QueryRepairOptions } from './repair.js';
