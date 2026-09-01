@@ -3,14 +3,12 @@
 require "set"
 
 module AgenticQuery
-  # Deterministic authorization and resource policy for model-generated queries.
-  # Policies are application code and are never delegated to the model.
+  # Authorization and query-shaping policy owned entirely by application code.
   class Policy
-    attr_reader :max_rows, :timeout_ms
+    attr_reader :execution_policy
 
-    def initialize(max_rows: 1_000, timeout_ms: 5_000, row_constraints: {}, tenant_scopes: {})
-      @max_rows = Integer(max_rows)
-      @timeout_ms = Integer(timeout_ms)
+    def initialize(execution_policy: ExecutionPolicy.new, row_constraints: {}, tenant_scopes: {})
+      @execution_policy = execution_policy
       @allowed_entities = nil
       @denied_fields = Hash.new { |hash, key| hash[key] = [] }
       @row_constraints = row_constraints.transform_keys(&:to_s).transform_values do |constraint|
@@ -19,6 +17,14 @@ module AgenticQuery
       @tenant_scopes = tenant_scopes.transform_keys(&:to_s).transform_values do |scope|
         scope.is_a?(TenantScope) ? scope : TenantScope.new(scope)
       end
+    end
+
+    def max_rows
+      execution_policy.max_rows
+    end
+
+    def timeout_ms
+      execution_policy.timeout_ms
     end
 
     def allow_entities(*entities)
@@ -68,9 +74,11 @@ module AgenticQuery
 
     def validate_limit!(query)
       limit = query["limit"]
-      return if limit.nil? || Integer(limit) <= @max_rows
+      return if limit.nil? || Integer(limit) <= max_rows
 
       raise QueryValidationError, "Query limit exceeds policy maximum"
+    rescue ArgumentError, TypeError
+      raise QueryValidationError, "Query limit must be an integer"
     end
 
     def authorize_entities!(query)
