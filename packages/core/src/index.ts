@@ -112,3 +112,5 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
     }
   }
 }
+
+export type { EntitySchema, FieldSchema, RelationSchema, QueryAdapter, SchemaProvider } from './adapter.js';
