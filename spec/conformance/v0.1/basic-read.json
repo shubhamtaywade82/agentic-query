@@ -1,0 +1,25 @@
+{
+  "name": "basic-read",
+  "query": {
+    "source": { "name": "orders" },
+    "select": [
+      { "field": { "entity": "orders", "field": "id" } },
+      { "field": { "entity": "orders", "field": "status" } }
+    ],
+    "filters": [
+      {
+        "field": { "entity": "orders", "field": "status" },
+        "operator": "eq",
+        "value": "completed"
+      }
+    ],
+    "orderBy": [
+      { "field": { "entity": "orders", "field": "id" }, "direction": "desc" }
+    ],
+    "limit": 10
+  },
+  "policy": {
+    "allowedEntities": ["orders"],
+    "maxRows": 100
+  }
+}
