@@ -1,4 +1,4 @@
-import type { Filter, Query, SelectExpression } from '@agentic-query/core';
+import { validateQuery, type Filter, type Query, type QueryPolicy, type SelectExpression } from '@agentic-query/core';
 
 export interface PrismaFieldMap {
   [entity: string]: Record<string, string>;
@@ -34,7 +34,8 @@ export class PrismaAdapter {
     this.relations = options.relations ?? {};
   }
 
-  compile(query: Query): PrismaCompiledQuery {
+  compile(query: Query, policy: QueryPolicy = {}): PrismaCompiledQuery {
+    validateQuery(query, policy);
     const entity = query.source.name;
     const model = this.models[entity];
     if (!model) throw new Error(`Prisma model is not registered: ${entity}`);
