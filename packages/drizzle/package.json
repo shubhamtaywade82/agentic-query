@@ -1,6 +1,6 @@
 {
   "name": "@agentic-query/drizzle",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Drizzle adapter for Agentic Query",
   "type": "module",
   "main": "./dist/index.js",
@@ -21,6 +21,20 @@
   "dependencies": {
     "@agentic-query/core": "workspace:*"
   },
+  "peerDependencies": {
+    "drizzle-orm": ">=0.40"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shubhamtaywade82/agentic-query.git",
+    "directory": "packages/drizzle"
+  },
+  "homepage": "https://github.com/shubhamtaywade82/agentic-query#readme",
+  "bugs": {
+    "url": "https://github.com/shubhamtaywade82/agentic-query/issues"
+  },
+  "keywords": ["ai", "llm", "orm", "drizzle", "agent", "database"],
+  "license": "MIT",
   "devDependencies": {
     "drizzle-orm": "^0.44.5",
     "typescript": "^5.9.2",
