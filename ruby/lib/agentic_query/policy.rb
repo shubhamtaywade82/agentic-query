@@ -6,11 +6,12 @@ module AgenticQuery
   class Policy
     attr_reader :max_rows, :timeout_ms
 
-    def initialize(max_rows: 1_000, timeout_ms: 5_000)
-      @max_rows = max_rows
-      @timeout_ms = timeout_ms
+    def initialize(max_rows: 1_000, timeout_ms: 5_000, row_constraints: {})
+      @max_rows = Integer(max_rows)
+      @timeout_ms = Integer(timeout_ms)
       @allowed_entities = nil
       @denied_fields = Hash.new { |hash, key| hash[key] = [] }
+      @row_constraints = row_constraints.transform_keys(&:to_s)
     end
 
     def allow_entities(*entities)
@@ -19,6 +20,19 @@ module AgenticQuery
 
     def deny_fields(entity, *fields)
       @denied_fields[entity.to_s].concat(fields.flatten.map(&:to_s)).uniq!
+    end
+
+    # Register deterministic row-level predicates. The block receives the
+    # ActiveRecord relation and must return a relation. This keeps tenant
+    # isolation in trusted application code instead of the model prompt.
+    def constrain_rows(entity, &constraint)
+      raise ArgumentError, "row constraint requires a block" unless constraint
+
+      @row_constraints[entity.to_s] = constraint
+    end
+
+    def row_constraint(entity)
+      @row_constraints[entity.to_s]
     end
 
     def authorize!(query)
@@ -40,7 +54,7 @@ module AgenticQuery
 
     def validate_limit!(query)
       limit = query["limit"]
-      return if limit.nil? || limit.to_i <= @max_rows
+      return if limit.nil? || Integer(limit) <= @max_rows
 
       raise QueryValidationError, "Query limit exceeds policy maximum"
     end
