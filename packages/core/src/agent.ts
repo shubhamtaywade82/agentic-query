@@ -87,7 +87,7 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
     }
 
     validateQuery(query, policy);
-    const compiled = this.options.queryAdapter.compile(query);
+    const compiled = this.options.queryAdapter.compile(query, policy);
     const result = await this.options.queryAdapter.execute(compiled);
 
     return { query, result, schemaContext, repairAttempts };
