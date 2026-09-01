@@ -4,6 +4,7 @@ import { StructuredQueryGenerator, QueryGenerationError } from './query-generato
 import { SemanticQueryGenerator } from './semantic-generator.js';
 import { formatSchemaContext, SimpleSchemaRetriever, type SchemaRetriever } from './schema-retriever.js';
 import type { SemanticCatalog } from './semantic.js';
+import { CollectingQueryObserver, NoopQueryObserver, type QueryObserver } from './observability.js';
 
 export interface AgentPolicy extends QueryPolicy {}
 
@@ -17,6 +18,7 @@ export interface AgentOptions<CompiledQuery = unknown, Result = unknown> {
   schemaRetriever?: SchemaRetriever;
   semanticCatalog?: SemanticCatalog;
   maxRepairAttempts?: number;
+  observer?: QueryObserver;
 }
 
 export interface AgentResult<Result> {
@@ -32,6 +34,7 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
   private readonly schemaRetriever: SchemaRetriever;
   private readonly repairer: QueryRepairer;
   private readonly maxRepairAttempts: number;
+  private readonly observer: QueryObserver;
 
   constructor(private readonly options: AgentOptions<CompiledQuery, Result>) {
     this.generator = new StructuredQueryGenerator({
@@ -54,9 +57,11 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
       model: options.model,
       maxAttempts: this.maxRepairAttempts
     });
+    this.observer = options.observer ?? new NoopQueryObserver();
   }
 
   async ask(question: string): Promise<AgentResult<Result>> {
+    const startedAt = performance.now();
     const entities = this.schemaRetriever.retrieve(question);
     const schemaContext = formatSchemaContext(entities);
     const policy = this.options.policy ?? {};
@@ -79,17 +84,44 @@ export class AgenticQueryAgent<CompiledQuery = unknown, Result = unknown> {
           schemaContext
         });
       }
+      this.observer.onEvent({ name: 'query.generated', at: Date.now() });
       validateQuery(query, policy);
+      this.observer.onEvent({ name: 'query.validated', at: Date.now() });
     } catch (error) {
       const candidate = error instanceof QueryGenerationError ? error.candidate : {};
       query = await this.repairer.repair(question, schemaContext, candidate, policy);
       repairAttempts = this.maxRepairAttempts;
+      this.observer.onEvent({ name: 'query.repaired', at: Date.now(), attributes: { attempts: repairAttempts } });
+      validateQuery(query, policy);
+      this.observer.onEvent({ name: 'query.validated', at: Date.now() });
     }
 
-    validateQuery(query, policy);
+    const compileStartedAt = performance.now();
     const compiled = this.options.queryAdapter.compile(query, policy);
-    const result = await this.options.queryAdapter.execute(compiled);
+    this.observer.onEvent({
+      name: 'query.compiled',
+      at: Date.now(),
+      durationMs: Number((performance.now() - compileStartedAt).toFixed(3))
+    });
 
-    return { query, result, schemaContext, repairAttempts };
+    try {
+      const result = await this.options.queryAdapter.execute(compiled);
+      this.observer.onEvent({
+        name: 'query.executed',
+        at: Date.now(),
+        durationMs: Number((performance.now() - startedAt).toFixed(3))
+      });
+      return { query, result, schemaContext, repairAttempts };
+    } catch (error) {
+      this.observer.onEvent({
+        name: 'query.failed',
+        at: Date.now(),
+        durationMs: Number((performance.now() - startedAt).toFixed(3)),
+        attributes: { error: error instanceof Error ? error.name : 'unknown' }
+      });
+      throw error;
+    }
   }
 }
+
+export { CollectingQueryObserver };
