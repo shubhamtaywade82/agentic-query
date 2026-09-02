@@ -7,8 +7,9 @@ module AgenticQuery
   class Policy
     attr_reader :execution_policy
 
-    def initialize(execution_policy: ExecutionPolicy.new, row_constraints: {}, tenant_scopes: {})
-      @execution_policy = execution_policy
+    def initialize(execution_policy: nil, max_rows: nil, timeout_ms: nil, row_constraints: {}, tenant_scopes: {})
+      overrides = { max_rows: max_rows, timeout_ms: timeout_ms }.compact
+      @execution_policy = execution_policy || ExecutionPolicy.new(**overrides)
       @allowed_entities = nil
       @denied_fields = Hash.new { |hash, key| hash[key] = [] }
       @row_constraints = row_constraints.transform_keys(&:to_s).transform_values do |constraint|

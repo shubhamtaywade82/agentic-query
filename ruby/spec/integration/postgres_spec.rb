@@ -28,6 +28,8 @@ RSpec.describe "PostgreSQL integration" do
   end
 
   after(:context) do
+    next unless ENV["DATABASE_URL"]
+
     ActiveRecord::Base.connection.drop_table(:orders, if_exists: true) if ActiveRecord::Base.connected?
   end
 

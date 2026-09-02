@@ -1,21 +1,6 @@
 # frozen_string_literal: true
 
-require "active_record"
-require "sqlite3"
-require "agentic_query"
-
-ActiveRecord::Base.establish_connection(adapter: "sqlite3", database: ":memory:")
-
-ActiveRecord::Schema.define do
-  create_table :customers, force: true do |table|
-    table.string :name, null: false
-  end
-
-  create_table :orders, force: true do |table|
-    table.integer :customer_id, null: false
-    table.decimal :amount, null: false
-  end
-end
+require_relative "spec_helper"
 
 class Customer < ActiveRecord::Base
   has_many :orders

@@ -9,6 +9,7 @@ coverage/
 .bundle/
 vendor/bundle/
 .ruby-version.local
+/ruby/Gemfile.lock
 
 # Editors / OS
 .DS_Store

@@ -9,7 +9,7 @@ export function drizzleConformanceAdapter<CompiledQuery = unknown, Result = unkn
 }
 
 export function runDrizzleConformance<CompiledQuery = unknown, Result = unknown>(
-  config: DrizzleQueryConfig<CompiledQuery, Result>,
+  config: DrizzleQueryConfig<CompiledQuery>,
   suite: ConformanceSuite
 ): void {
   const adapter = drizzleConformanceAdapter<CompiledQuery, Result>(config);

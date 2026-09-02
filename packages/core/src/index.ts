@@ -1,3 +1,5 @@
+import { QueryValidationError } from './errors.js';
+
 export type Aggregate = 'count' | 'sum' | 'avg' | 'min' | 'max';
 export type ComparisonOperator = 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'in' | 'not_in' | 'like' | 'is_null' | 'is_not_null' | 'between';
 
@@ -39,11 +41,6 @@ export interface QueryPolicy {
   allowedEntities?: readonly string[];
   deniedFields?: Readonly<Record<string, readonly string[]>>;
   maxRows?: number;
-}
-
-export class QueryValidationError extends Error {
-  readonly code = 'QUERY_VALIDATION_ERROR';
-  constructor(message: string) { super(message); this.name = 'QueryValidationError'; }
 }
 
 function assertFieldRef(field: unknown, label: string): asserts field is FieldRef {
@@ -140,6 +137,7 @@ export function validateQuery(query: Query, policy: QueryPolicy = {}): void {
   }
 }
 
+export { QueryValidationError } from './errors.js';
 export type { EntitySchema, FieldSchema, RelationSchema, QueryAdapter, SchemaProvider } from './adapter.js';
 export type { ModelMessage, StructuredGenerationRequest, StructuredGenerationResult, ModelProvider, QueryGenerationRequest, QueryGenerator } from './model.js';
 export { StructuredQueryGenerator, QUERY_AST_SCHEMA, QueryGenerationError } from './query-generator.js';
@@ -147,8 +145,10 @@ export { SemanticQueryGenerator, SEMANTIC_QUERY_SCHEMA, type SemanticQueryGenera
 export { AgenticQueryAgent, type AgentOptions, type AgentPolicy, type AgentResult } from './agent.js';
 export { QueryRepairer, QueryRepairError, type QueryRepairOptions } from './repair.js';
 export { SemanticCatalog, type DimensionDefinition, type MetricDefinition, type SemanticCatalogDefinition, type SelectMetricExpression } from './semantic.js';
-export { resolveSemanticSelect, resolveSemanticQuery, type SemanticSelectExpression as SemanticResolverSelectExpression } from './semantic-query.js';
+export { resolveSemanticSelect, resolveSemanticQuery } from './semantic-query.js';
+export type { SemanticSelectExpression as SemanticResolverSelectExpression };
 export { SchemaRetriever, SimpleSchemaRetriever, formatSchemaContext, type SimpleSchemaRetrieverOptions } from './schema-retriever.js';
 export { validateQueryPlan, DeterministicQueryPlanner, type QueryPlan, type QueryPlanStep, type PlanContext, type QueryPlanner } from './planner.js';
 export { executeQueryPlan, planQueryMap, type PlanExecutionOptions, type PlanExecutionResult, type PlanStepResult } from './plan-executor.js';
 export { CollectingQueryObserver, CompositeQueryObserver, NoopQueryObserver, elapsedMs, type QueryEvent, type QueryEventName, type QueryObserver } from './observability.js';
+export { assertConformanceCase, runConformanceSuite, type ConformanceAdapter, type ConformanceCase, type ConformanceExpectation, type ConformanceSuite } from './conformance.js';

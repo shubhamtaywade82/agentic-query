@@ -1,4 +1,5 @@
-import { QueryValidationError, validateQuery, type ModelProvider, type Query, type QueryGenerationRequest } from './index.js';
+import { QueryValidationError } from './errors.js';
+import { validateQuery, type ModelProvider, type Query, type QueryGenerationRequest } from './index.js';
 import type { QueryGenerator } from './model.js';
 
 export const QUERY_AST_SCHEMA = {
@@ -96,7 +97,8 @@ export class StructuredQueryGenerator implements QueryGenerator {
       return result.output;
     } catch (error) {
       if (error instanceof QueryGenerationError) throw error;
-      throw new QueryGenerationError('Model produced an invalid query AST', output, error);
+      const message = error instanceof Error ? error.message : 'Model produced an invalid query AST';
+      throw new QueryGenerationError(message, output, error);
     }
   }
 }
