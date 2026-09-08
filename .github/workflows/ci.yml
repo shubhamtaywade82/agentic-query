@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
           run_install: false
@@ -125,7 +125,7 @@ jobs:
           output=$(bundle exec rspec spec/policy_security_spec.rb spec/policy_spec.rb spec/agentic_query_spec.rb spec/policy_row_constraint_spec.rb --format progress 2>&1 | tee /dev/stderr)
           examples=$(echo "$output" | grep -oE '[0-9]+ examples?' | head -1 | grep -oE '[0-9]+')
           test "${examples:-0}" -gt 0 || { echo "::error::Security suite executed 0 examples"; exit 1; }
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
           run_install: false
@@ -149,7 +149,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
           run_install: false
