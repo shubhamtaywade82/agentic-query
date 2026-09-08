@@ -17,7 +17,7 @@ jobs:
     name: TypeScript (typecheck, lint, unit, build)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.0
@@ -55,7 +55,7 @@ jobs:
       run:
         working-directory: ruby
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -88,7 +88,7 @@ jobs:
       run:
         working-directory: ruby
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -114,7 +114,7 @@ jobs:
       run:
         working-directory: ruby
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -148,7 +148,7 @@ jobs:
     name: Cross-ORM conformance suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.0
@@ -189,7 +189,7 @@ jobs:
     name: Version consistency (npm, gem, VERSION, CHANGELOG, lockfiles)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22.14.0

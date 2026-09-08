@@ -24,7 +24,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       dry_run: ${{ steps.dry_run.outputs.dry_run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
@@ -69,7 +69,7 @@ jobs:
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
         with:
           version: 10.15.0
@@ -127,7 +127,7 @@ jobs:
       id-token: write
     environment: npm-publish
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 10.15.0
@@ -177,7 +177,7 @@ jobs:
       id-token: write
     environment: rubygems-publish
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -203,7 +203,7 @@ jobs:
     if: needs.verify.outputs.dry_run != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Verify CHANGELOG documents this release
         run: |
           set -euo pipefail
