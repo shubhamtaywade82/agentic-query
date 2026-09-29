@@ -47,7 +47,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.3",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
   }
